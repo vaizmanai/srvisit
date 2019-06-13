@@ -89,6 +89,9 @@ func logAdd(TMessage int, Messages string) {
 			return
 		}
 
+		logFile.Write([]byte(fmt.Sprint(time.Now().Format("02 Jan 2006 15:04:05.000000")) + "\t" + messLogText[TMessage] + ":\t" + Messages + "\n"))
+		fmt.Println(fmt.Sprint(time.Now().Format("02 Jan 2006 15:04:05.000000")) + "\t" + messLogText[TMessage] + ":\t" + Messages)
+
 		fs, err := logFile.Stat()
 		if err != nil {
 			return
@@ -102,10 +105,6 @@ func logAdd(TMessage int, Messages string) {
 			}
 			logFile = nil
 		}
-
-		logFile.Write([]byte(fmt.Sprint(time.Now().Format("02 Jan 2006 15:04:05.000000")) + "\t" + messLogText[TMessage] + ":\t" + Messages + "\n"))
-
-		fmt.Println(fmt.Sprint(time.Now().Format("02 Jan 2006 15:04:05.000000")) + "\t" + messLogText[TMessage] + ":\t" + Messages)
 	}
 
 }
@@ -379,30 +378,6 @@ func loadOptions() {
 		logAdd(MESS_ERROR, "Не получилось загрузить настройки: "+fmt.Sprint(err))
 	}
 }
-
-//func saveVNCList(){
-//
-//	b, err := json.Marshal(array_vnc)
-//	if err == nil {
-//		f, err := os.Create(FILE_VNCLIST + ".tmp")
-//		if err == nil {
-//			n, err := f.Write(b)
-//			if n == len(b) && err == nil {
-//				f.Close()
-//
-//				os.Remove(FILE_VNCLIST)
-//				os.Rename(FILE_VNCLIST + ".tmp", FILE_VNCLIST)
-//			} else {
-//				f.Close()
-//				logAdd(MESS_ERROR, "Не удалось сохранить список VNC: " + fmt.Sprint(err))
-//			}
-//		} else {
-//			logAdd(MESS_ERROR, "Не удалось сохранить список VNC: "+fmt.Sprint(err))
-//		}
-//	} else {
-//		logAdd(MESS_ERROR, "Не удалось сохранить список VNC: " + fmt.Sprint(err))
-//	}
-//}
 
 func loadVNCList() {
 

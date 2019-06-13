@@ -14,7 +14,7 @@ import (
 
 func recoverMainServer(conn *net.Conn) {
 	if recover() != nil {
-		logAdd(MESS_ERROR, "Поток mainServer поймал критическую ошибку")
+		logAdd(MESS_ERROR, "поток mainServer поймал критическую ошибку")
 		debug.PrintStack()
 
 		if conn != nil {
@@ -25,7 +25,7 @@ func recoverMainServer(conn *net.Conn) {
 
 func recoverDataServer(conn *net.Conn) {
 	if recover() != nil {
-		logAdd(MESS_ERROR, "Поток dataServer поймал критическую ошибку")
+		logAdd(MESS_ERROR, "поток dataServer поймал критическую ошибку")
 		debug.PrintStack()
 
 		if conn != nil {
