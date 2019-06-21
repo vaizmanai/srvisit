@@ -39,12 +39,14 @@ func processAuth(message Message, conn *net.Conn, curClient *Client, id string) 
 	logAdd(MESS_INFO, id+" сгенерировали pid")
 
 	salt := randomString(LEN_SALT)
+	token := randomString(LEN_TOKEN)
 
 	if sendMessage(conn, TMESS_AUTH, s, salt) {
 		curClient.Conn = conn
 		curClient.Pid = s
 		curClient.Serial = message.Messages[0]
 		curClient.Salt = salt
+		curClient.token = token
 		curClient.storeClient()
 		curClient.coordinates = [2]float64{0, 0}
 

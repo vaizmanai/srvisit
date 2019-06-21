@@ -24,6 +24,7 @@ const (
 	MAX_LEN_ID_LOG  = 6
 	MAX_LEN_ID_NODE = 8
 	LEN_SALT        = 16
+	LEN_TOKEN       = 32
 	PREDEFINED_PASS = "0000"
 	URI_IPIFY_API   = "https://api.ipify.org/"
 	URI_YANDEX_MAP  = "http://api.lbs.yandex.net/geolocation"
@@ -109,21 +110,23 @@ const (
 )
 
 var (
-
 	//опции по-умолчанию
 	options = Options{
-		MainServerPort: "65471",
-		DataServerPort: "65475",
-		HttpServerPort: "8090",
-		SizeBuff:       16000,
-		AdminLogin:     "admin",
-		AdminPass:      "admin",
-		mode:           REGULAR,
-		MyCoordinates:  [2]float64{0, 0},
-		FDebug:         true,
-		MasterServer:   "data.rvisit.net",
-		MasterPort:     "65470",
-		MasterPassword: "master",
+		MainServerPort:  "65471",
+		DataServerPort:  "65475",
+		HttpServerPort:  "8090",
+		HttpsServerPort: "8091",
+		HttpsCertPath:   "cert.pem",
+		HttpsKeyPath:    "key.pem",
+		SizeBuff:        16000,
+		AdminLogin:      "admin",
+		AdminPass:       "admin",
+		mode:            REGULAR,
+		MyCoordinates:   [2]float64{0, 0},
+		FDebug:          true,
+		MasterServer:    "data.rvisit.net",
+		MasterPort:      "65470",
+		MasterPassword:  "master",
 	}
 
 	//считаем всякую бесполезную информацию или нет
@@ -256,7 +259,7 @@ var (
 		{"reload", processApiReload},
 		{"reopen", processApiReopen},
 		{"options_get", processApiOptionsGet},
-		{"version", processApiVersion} }
+		{"version", processApiVersion}}
 
 	//список доступных vnc клиентов и выбранный по-умолчанию
 	defaultVnc = 0
@@ -326,7 +329,10 @@ type Options struct {
 	DataServerPort string
 
 	//реквизиты веб сервера
-	HttpServerPort string
+	HttpServerPort  string
+	HttpsServerPort string
+	HttpsCertPath   string
+	HttpsKeyPath    string
 
 	//размер буфера для операций с сокетами
 	SizeBuff int
@@ -349,7 +355,7 @@ type Options struct {
 	YandexApiKeyMap string
 
 	//актуальная версия клиента, используем при обновлении и на сайте
-	Version			string
+	Version string
 
 	//очевидно что флаг для отладки
 	FDebug bool
@@ -405,6 +411,7 @@ type Client struct {
 	Version string
 	Salt    string //for password
 	Profile *Profile
+	token   string //for web auth
 
 	Conn *net.Conn
 	Code string //for connection
@@ -447,12 +454,12 @@ type YandexResp struct {
 }
 
 type YandexBody struct {
-	Latitude           float64 `json:"latitude"`
-	Longitude          float64 `json:"longitude"`
-	Altitude           float64 `json:"altitude"`
-	Precision          float32 `json:"precision"`
-	AltitudePrecision  float32 `json:"altitude_precision"`
-	Type               string  `json:"type"`
+	Latitude          float64 `json:"latitude"`
+	Longitude         float64 `json:"longitude"`
+	Altitude          float64 `json:"altitude"`
+	Precision         float32 `json:"precision"`
+	AltitudePrecision float32 `json:"altitude_precision"`
+	Type              string  `json:"type"`
 }
 
 type WebClientStatistic struct {

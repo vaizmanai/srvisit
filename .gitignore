@@ -9,3 +9,5 @@ counters.json
 *.exe
 node_log.txt
 srvisit
+cert.pem
+key.pem
