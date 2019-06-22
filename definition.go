@@ -10,7 +10,7 @@ import (
 
 const (
 	//REVISIT_VERSION - версия сервера или ноды, пока не используется
-	REVISIT_VERSION = "0.6"
+	REVISIT_VERSION = "0.7"
 
 	//общие константы
 	CODE_LENGTH     = 64 //длина code

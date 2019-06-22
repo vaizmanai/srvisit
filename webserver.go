@@ -29,20 +29,54 @@ func httpServer() {
 	//-----------------------
 
 	apiRouter := myRouter.PathPrefix("/v2/api").Subrouter()
-	apiRouter.HandleFunc("/test", handleTest).Methods("GET")
+	apiRouter.Handle("/test", handleAuth(http.HandlerFunc(handleTest))).Methods("GET")
+	apiRouter.Use(handleCORS)
 
 	go func() {
-		err := http.ListenAndServe(":"+options.HttpServerPort, handleCORS(myRouter))
+		err := http.ListenAndServe(":"+options.HttpServerPort, myRouter)
 		if err != nil {
 			logAdd(MESS_ERROR, "webServer не смог занять порт: "+fmt.Sprint(err))
 		}
 	}()
 
-	err := http.ListenAndServeTLS(":"+options.HttpsServerPort, options.HttpsCertPath, options.HttpsKeyPath, handleCORS(myRouter))
+	err := http.ListenAndServeTLS(":"+options.HttpsServerPort, options.HttpsCertPath, options.HttpsKeyPath, myRouter)
 	if err != nil {
 		logAdd(MESS_ERROR, "webServer не смог занять порт: "+fmt.Sprint(err))
 	}
 
+}
+
+func exampleMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		logAdd(MESS_FULL, "check auth")
+
+		// Our middleware logic goes here...
+		next.ServeHTTP(w, r)
+	})
+}
+
+func handleAuth(f func(w http.ResponseWriter, r *http.Request)) http.HandlerFunc {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		logAdd(MESS_FULL, "check auth")
+
+		pid := string(r.FormValue("abc"))
+		token := string(r.FormValue("cba"))
+
+		fmt.Println(pid)
+		fmt.Println(token)
+
+		list := clients[cleanPid(pid)]
+		for _, c := range list {
+			if c.token == token {
+				f(w, r)
+
+				return
+			}
+		}
+
+		http.Error(w, "req auth", http.StatusUnauthorized)
+		return
+	})
 }
 
 func handleCORS(h http.Handler) http.Handler {
@@ -65,6 +99,7 @@ func handleCORS(h http.Handler) http.Handler {
 }
 
 func handleTest(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("test"))
+	//w.Write([]byte("test"))
+	//w.WriteHeader(http.StatusInternalServerError)
+	http.Error(w, "123", http.StatusInternalServerError)
 }
