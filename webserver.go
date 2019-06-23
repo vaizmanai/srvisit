@@ -32,7 +32,7 @@ func httpServer() {
 
 	apiRouter := myRouter.PathPrefix("/v2/api").Subrouter()
 	apiRouter.HandleFunc("/auth", handleAuth).Methods("POST")
-	apiRouter.HandleFunc("/test", handleTest).Methods("GET")
+	apiRouter.Handle("/test", checkAuth(handleTest)).Methods("GET")
 	apiRouter.Use(handleCORS)
 
 	//-----------------------
@@ -51,28 +51,34 @@ func httpServer() {
 
 }
 
-func checkAuth(w http.ResponseWriter, r *http.Request) *Client {
-	cookie_pid, err := r.Cookie("abc")
-	if err != nil {
-		return nil
-	}
-	cookie_token, err := r.Cookie("abc")
-	if err != nil {
-		return nil
-	}
-
-	list := clients[cleanPid(cookie_pid.Value)]
-	for _, c := range list {
-		if c.token == cookie_token.Value {
-			cookie_pid.Expires = time.Now().Add(WEB_TIMEOUT_HOUR * time.Hour)
-			cookie_token.Expires = time.Now().Add(WEB_TIMEOUT_HOUR * time.Hour)
-			http.SetCookie(w, cookie_pid)
-			http.SetCookie(w, cookie_token)
-			return c
+func checkAuth(f func(w http.ResponseWriter, r *http.Request, client *Client)) http.HandlerFunc {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		cookie_pid, err := r.Cookie("abc")
+		if err != nil {
+			http.Error(w, "unknown user", http.StatusUnauthorized)
+			return
 		}
-	}
 
-	return nil
+		cookie_token, err := r.Cookie("abc")
+		if err != nil {
+			http.Error(w, "unknown user", http.StatusUnauthorized)
+			return
+		}
+
+		list := clients[cleanPid(cookie_pid.Value)]
+		for _, c := range list {
+			if c.token == cookie_token.Value {
+				cookie_pid.Expires = time.Now().Add(WEB_TIMEOUT_HOUR * time.Hour)
+				cookie_token.Expires = time.Now().Add(WEB_TIMEOUT_HOUR * time.Hour)
+				http.SetCookie(w, cookie_pid)
+				http.SetCookie(w, cookie_token)
+				f(w, r, c)
+				return
+			}
+		}
+
+		http.Error(w, "unknown user", http.StatusUnauthorized)
+	})
 }
 
 func handleCORS(h http.Handler) http.Handler {
@@ -94,13 +100,7 @@ func handleCORS(h http.Handler) http.Handler {
 	})
 }
 
-func handleTest(w http.ResponseWriter, r *http.Request) {
-	client := checkAuth(w, r)
-	if client == nil {
-		http.Error(w, "unknown user", http.StatusUnauthorized)
-		return
-	}
-
+func handleTest(w http.ResponseWriter, r *http.Request, client *Client) {
 	b, _ := json.Marshal(client)
 	w.Write(b)
 }
