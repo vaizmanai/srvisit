@@ -31,7 +31,7 @@ func httpServer() {
 	//-----------------------
 
 	apiRouter := myRouter.PathPrefix("/v2/api").Subrouter()
-	apiRouter.HandleFunc("/auth", handleAuth).Methods("POST")
+	apiRouter.HandleFunc("/auth", handleAuth).Methods("GET", "POST")
 	apiRouter.Handle("/test", checkAuth(handleTest)).Methods("GET")
 	apiRouter.Use(handleCORS)
 
