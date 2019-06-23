@@ -67,7 +67,7 @@ func checkAuth(f func(w http.ResponseWriter, r *http.Request, client *Client)) h
 
 		list := clients[cleanPid(cookie_pid.Value)]
 		for _, c := range list {
-			if c.token == cookie_token.Value {
+			if c.Token == cookie_token.Value {
 				cookie_pid.Expires = time.Now().Add(WEB_TIMEOUT_HOUR * time.Hour)
 				cookie_token.Expires = time.Now().Add(WEB_TIMEOUT_HOUR * time.Hour)
 				http.SetCookie(w, cookie_pid)
@@ -113,7 +113,7 @@ func handleAuth(w http.ResponseWriter, r *http.Request) {
 
 	list := clients[cleanPid(pid)]
 	for _, c := range list {
-		if c.token == token {
+		if c.Token == token {
 			cookie_pid := http.Cookie{Name: "abc", Value: pid, Expires: time.Now().Add(WEB_TIMEOUT_HOUR * time.Hour)}
 			cookie_token := http.Cookie{Name: "cba", Value: token, Expires: time.Now().Add(WEB_TIMEOUT_HOUR * time.Hour)}
 			http.SetCookie(w, &cookie_pid)

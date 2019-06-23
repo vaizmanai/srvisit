@@ -412,7 +412,7 @@ type Client struct {
 	Version string
 	Salt    string //for password
 	Profile *Profile
-	token   string //for web auth
+	Token   string //for web auth
 
 	Conn *net.Conn
 	Code string //for connection

@@ -41,12 +41,12 @@ func processAuth(message Message, conn *net.Conn, curClient *Client, id string) 
 	salt := randomString(LEN_SALT)
 	token := randomString(LEN_TOKEN)
 
-	if sendMessage(conn, TMESS_AUTH, s, salt) {
+	if sendMessage(conn, TMESS_AUTH, s, salt, token) {
 		curClient.Conn = conn
 		curClient.Pid = s
 		curClient.Serial = message.Messages[0]
 		curClient.Salt = salt
-		curClient.token = token
+		curClient.Token = token
 		curClient.storeClient()
 		curClient.coordinates = [2]float64{0, 0}
 
