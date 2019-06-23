@@ -1,9 +1,11 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/gorilla/mux"
 	"net/http"
+	"time"
 )
 
 func httpServer() {
@@ -29,8 +31,11 @@ func httpServer() {
 	//-----------------------
 
 	apiRouter := myRouter.PathPrefix("/v2/api").Subrouter()
-	apiRouter.Handle("/test", handleAuth(http.HandlerFunc(handleTest))).Methods("GET")
+	apiRouter.HandleFunc("/auth", handleAuth).Methods("POST")
+	apiRouter.HandleFunc("/test", handleTest).Methods("GET")
 	apiRouter.Use(handleCORS)
+
+	//-----------------------
 
 	go func() {
 		err := http.ListenAndServe(":"+options.HttpServerPort, myRouter)
@@ -46,37 +51,28 @@ func httpServer() {
 
 }
 
-func exampleMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		logAdd(MESS_FULL, "check auth")
+func checkAuth(w http.ResponseWriter, r *http.Request) *Client {
+	cookie_pid, err := r.Cookie("abc")
+	if err != nil {
+		return nil
+	}
+	cookie_token, err := r.Cookie("abc")
+	if err != nil {
+		return nil
+	}
 
-		// Our middleware logic goes here...
-		next.ServeHTTP(w, r)
-	})
-}
-
-func handleAuth(f func(w http.ResponseWriter, r *http.Request)) http.HandlerFunc {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		logAdd(MESS_FULL, "check auth")
-
-		pid := string(r.FormValue("abc"))
-		token := string(r.FormValue("cba"))
-
-		fmt.Println(pid)
-		fmt.Println(token)
-
-		list := clients[cleanPid(pid)]
-		for _, c := range list {
-			if c.token == token {
-				f(w, r)
-
-				return
-			}
+	list := clients[cleanPid(cookie_pid.Value)]
+	for _, c := range list {
+		if c.token == cookie_token.Value {
+			cookie_pid.Expires = time.Now().Add(WEB_TIMEOUT_HOUR * time.Hour)
+			cookie_token.Expires = time.Now().Add(WEB_TIMEOUT_HOUR * time.Hour)
+			http.SetCookie(w, cookie_pid)
+			http.SetCookie(w, cookie_token)
+			return c
 		}
+	}
 
-		http.Error(w, "req auth", http.StatusUnauthorized)
-		return
-	})
+	return nil
 }
 
 func handleCORS(h http.Handler) http.Handler {
@@ -99,7 +95,31 @@ func handleCORS(h http.Handler) http.Handler {
 }
 
 func handleTest(w http.ResponseWriter, r *http.Request) {
-	//w.Write([]byte("test"))
-	//w.WriteHeader(http.StatusInternalServerError)
-	http.Error(w, "123", http.StatusInternalServerError)
+	client := checkAuth(w, r)
+	if client == nil {
+		http.Error(w, "unknown user", http.StatusUnauthorized)
+		return
+	}
+
+	b, _ := json.Marshal(client)
+	w.Write(b)
+}
+
+func handleAuth(w http.ResponseWriter, r *http.Request) {
+	pid := string(r.FormValue("abc"))
+	token := string(r.FormValue("cba"))
+
+	logAdd(MESS_INFO, "trying to auth app "+pid)
+
+	list := clients[cleanPid(pid)]
+	for _, c := range list {
+		if c.token == token {
+			cookie_pid := http.Cookie{Name: "abc", Value: pid, Expires: time.Now().Add(WEB_TIMEOUT_HOUR * time.Hour)}
+			cookie_token := http.Cookie{Name: "cba", Value: token, Expires: time.Now().Add(WEB_TIMEOUT_HOUR * time.Hour)}
+			http.SetCookie(w, &cookie_pid)
+			http.SetCookie(w, &cookie_token)
+			return
+		}
+	}
+	http.Error(w, "Launch by reVisit, please!", http.StatusUnauthorized)
 }

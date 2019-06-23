@@ -13,22 +13,23 @@ const (
 	REVISIT_VERSION = "0.7"
 
 	//общие константы
-	CODE_LENGTH     = 64 //длина code
-	PASSWORD_LENGTH = 14
-	FILE_PROFILES   = "profiles.list"
-	FILE_OPTIONS    = "options.cfg"
-	FILE_COUNTERS   = "counters.json"
-	FILE_VNCLIST    = "vnc.list"
-	LOG_NAME        = "log.txt"
-	LOG_SIZE        = 20 * 1024 * 1024 //20MB
-	MAX_LEN_ID_LOG  = 6
-	MAX_LEN_ID_NODE = 8
-	LEN_SALT        = 16
-	LEN_TOKEN       = 32
-	PREDEFINED_PASS = "0000"
-	URI_IPIFY_API   = "https://api.ipify.org/"
-	URI_YANDEX_MAP  = "http://api.lbs.yandex.net/geolocation"
-	REQ_YANDEX_MAP  = "{" +
+	CODE_LENGTH      = 64 //длина code
+	PASSWORD_LENGTH  = 14
+	FILE_PROFILES    = "profiles.list"
+	FILE_OPTIONS     = "options.cfg"
+	FILE_COUNTERS    = "counters.json"
+	FILE_VNCLIST     = "vnc.list"
+	LOG_NAME         = "log.txt"
+	LOG_SIZE         = 20 * 1024 * 1024 //20MB
+	MAX_LEN_ID_LOG   = 6
+	MAX_LEN_ID_NODE  = 8
+	LEN_SALT         = 16
+	LEN_TOKEN        = 32
+	WEB_TIMEOUT_HOUR = 2
+	PREDEFINED_PASS  = "0000"
+	URI_IPIFY_API    = "https://api.ipify.org/"
+	URI_YANDEX_MAP   = "http://api.lbs.yandex.net/geolocation"
+	REQ_YANDEX_MAP   = "{" +
 		"\"common\":{" +
 		"\"version\":\"1.0\"," +
 		"\"api_key\":\"%s\"" +
