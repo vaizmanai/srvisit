@@ -1,7 +1,7 @@
-package main
+package service
 
 import (
-	. "./common"
+	. "../common"
 	"bufio"
 	"bytes"
 	"encoding/json"
@@ -35,7 +35,7 @@ func recoverDataServer(conn *net.Conn) {
 	}
 }
 
-func mainServer() {
+func MainServer() {
 	LogAdd(MESS_INFO, "mainServer запустился")
 
 	ln, err := net.Listen("tcp", ":"+Options.MainServerPort)
@@ -51,7 +51,7 @@ func mainServer() {
 			break
 		}
 
-		go ping(&conn)
+		go Ping(&conn)
 		go mainHandler(&conn)
 	}
 
@@ -60,7 +60,7 @@ func mainServer() {
 }
 
 func mainHandler(conn *net.Conn) {
-	id := randomString(MAX_LEN_ID_LOG)
+	id := RandomString(MAX_LEN_ID_LOG)
 	LogAdd(MESS_INFO, id+" mainServer получил соединение "+fmt.Sprint((*conn).RemoteAddr()))
 
 	defer recoverMainServer(conn)
@@ -99,9 +99,9 @@ func mainHandler(conn *net.Conn) {
 		LogAdd(MESS_DETAIL, id+" "+fmt.Sprint(message))
 
 		//обрабатываем полученное сообщение
-		if len(processing) > message.TMessage {
-			if processing[message.TMessage].Processing != nil {
-				processing[message.TMessage].Processing(message, conn, &curClient, id)
+		if len(Processing) > message.TMessage {
+			if Processing[message.TMessage].Processing != nil {
+				Processing[message.TMessage].Processing(message, conn, &curClient, id)
 			} else {
 				LogAdd(MESS_INFO, id+" нет обработчика для сообщения "+fmt.Sprint(message.TMessage))
 				time.Sleep(time.Millisecond * WAIT_IDLE)
@@ -116,7 +116,7 @@ func mainHandler(conn *net.Conn) {
 
 	//удалим себя из профиля если авторизованы
 	if curClient.Profile != nil {
-		curClient.Profile.clients.Delete(cleanPid(curClient.Pid))
+		curClient.Profile.clients.Delete(CleanPid(curClient.Pid))
 	}
 
 	//пробежимся по профилям где мы есть и отправим новый статус
@@ -126,7 +126,7 @@ func mainHandler(conn *net.Conn) {
 		//все кто авторизовался в этот профиль должен получить новый статус
 		profile.clients.Range(func(key interface{}, value interface{}) bool {
 			client := value.(*Client)
-			sendMessage(client.Conn, TMESS_STATUS, cleanPid(curClient.Pid), "0")
+			sendMessage(client.Conn, TMESS_STATUS, CleanPid(curClient.Pid), "0")
 			return true
 		})
 
@@ -139,7 +139,7 @@ func mainHandler(conn *net.Conn) {
 	LogAdd(MESS_INFO, id+" mainServer потерял соединение с пиром "+fmt.Sprint((*conn).RemoteAddr()))
 }
 
-func dataServer() {
+func DataServer() {
 	LogAdd(MESS_INFO, "dataServer запустился")
 
 	ln, err := net.Listen("tcp", ":"+Options.DataServerPort)
@@ -163,7 +163,7 @@ func dataServer() {
 }
 
 func dataHandler(conn *net.Conn) {
-	id := randomString(6)
+	id := RandomString(6)
 	LogAdd(MESS_INFO, id+" dataHandler получил соединение "+fmt.Sprint((*conn).RemoteAddr()))
 
 	defer recoverDataServer(conn)
@@ -253,7 +253,7 @@ func dataHandler(conn *net.Conn) {
 			}
 		}
 
-		addCounter(countBytes)
+		AddCounter(countBytes)
 		if Options.Mode == NODE {
 			sendMessageToMaster(TMESS_AGENT_ADD_BYTES, fmt.Sprint(countBytes))
 		}

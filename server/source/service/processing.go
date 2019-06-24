@@ -1,7 +1,7 @@
-package main
+package service
 
 import (
-	. "./common"
+	. "../common"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -36,11 +36,11 @@ func processAuth(message Message, conn *net.Conn, curClient *Client, id string) 
 		return
 	}
 
-	s := getPid(message.Messages[0])
+	s := GetPid(message.Messages[0])
 	LogAdd(MESS_INFO, id+" сгенерировали pid")
 
-	salt := randomString(LEN_SALT)
-	token := randomString(LEN_TOKEN)
+	salt := RandomString(LEN_SALT)
+	token := RandomString(LEN_TOKEN)
 
 	if sendMessage(conn, TMESS_AUTH, s, salt, token) {
 		curClient.Conn = conn
@@ -58,7 +58,7 @@ func processAuth(message Message, conn *net.Conn, curClient *Client, id string) 
 		go func() {
 			h, _, err := net.SplitHostPort((*(*curClient).Conn).RemoteAddr().String())
 			if err == nil {
-				(*curClient).coordinates = getCoordinatesByYandex(h)
+				(*curClient).coordinates = GetCoordinatesByYandex(h)
 			}
 		}()
 	}
@@ -72,7 +72,7 @@ func processNotification(message Message, conn *net.Conn, curClient *Client, id 
 		return
 	}
 
-	list := clients[cleanPid(message.Messages[0])]
+	list := clients[CleanPid(message.Messages[0])]
 
 	if list != nil {
 		//todo надо бы как-то защититься от спама
@@ -100,7 +100,7 @@ func processConnect(message Message, conn *net.Conn, curClient *Client, id strin
 		address = message.Messages[3]
 	}
 
-	list := clients[cleanPid(message.Messages[0])]
+	list := clients[CleanPid(message.Messages[0])]
 
 	successfully := false
 	if list != nil && len(list) != 0 {
@@ -108,7 +108,7 @@ func processConnect(message Message, conn *net.Conn, curClient *Client, id strin
 
 		//отправим запрос на подключение всем, ответит только тот у кого пароль совпадет
 		for _, peer := range list {
-			code := randomString(CODE_LENGTH)
+			code := RandomString(CODE_LENGTH)
 
 			//убедимся что версия клиента поддерживает соединения через агента
 			if !greaterVersionThan(peer, MIN_VERSION_FOR_NODES) {
@@ -180,12 +180,12 @@ func processLogin(message Message, conn *net.Conn, curClient *Client, id string)
 	email := strings.ToLower(message.Messages[0])
 	profile, ok := profiles.Load(email)
 	if ok == true {
-		if message.Messages[1] == getSHA256(profile.(*Profile).Pass+curClient.Salt) {
+		if message.Messages[1] == GetSHA256(profile.(*Profile).Pass+curClient.Salt) {
 			LogAdd(MESS_INFO, id+" авторизация профиля пройдена")
 			sendMessage(conn, TMESS_LOGIN)
 
 			curClient.Profile = profile.(*Profile)
-			profile.(*Profile).clients.Store(cleanPid(curClient.Pid), curClient)
+			profile.(*Profile).clients.Store(CleanPid(curClient.Pid), curClient)
 			processContacts(message, conn, curClient, id)
 			return
 		}
@@ -213,11 +213,11 @@ func processReg(message Message, conn *net.Conn, curClient *Client, id string) {
 		newProfile := Profile{}
 		newProfile.Email = strings.ToLower(message.Messages[0])
 		if len(Options.ServerSMTP) > 0 {
-			newProfile.Pass = randomString(PASSWORD_LENGTH)
+			newProfile.Pass = RandomString(PASSWORD_LENGTH)
 
 			msg := "Subject: Information from reVisit\r\n\r\nYour password is " + newProfile.Pass + "\r\n"
 
-			success, err := sendEmail(message.Messages[0], msg)
+			success, err := SendEmail(message.Messages[0], msg)
 			if !success {
 				LogAdd(MESS_ERROR, id+" не удалось отправить письмо с паролем: "+fmt.Sprint(err))
 				sendMessage(conn, TMESS_NOTIFICATION, "Не удалось отправить письмо с паролем!") //todo удалить
@@ -316,7 +316,7 @@ func processContact(message Message, conn *net.Conn, curClient *Client, id strin
 			message.Messages[0] = fmt.Sprint(i)
 
 			//если такой пид онлайн - добавить наш профиль туда
-			list := clients[cleanPid(message.Messages[3])]
+			list := clients[CleanPid(message.Messages[3])]
 			if list != nil {
 				for _, peer := range list {
 					peer.profiles.Store(profile.Email, profile)
@@ -366,7 +366,7 @@ func processLogout(message Message, conn *net.Conn, curClient *Client, id string
 		return
 	}
 
-	curClient.Profile.clients.Delete(cleanPid(curClient.Pid))
+	curClient.Profile.clients.Delete(CleanPid(curClient.Pid))
 	curClient.Profile = nil
 }
 
@@ -439,7 +439,7 @@ func processStatus(message Message, conn *net.Conn, curClient *Client, id string
 	if err == nil {
 		contact := getContact(curClient.Profile.Contacts, i)
 		if contact != nil {
-			list := clients[cleanPid(contact.Pid)]
+			list := clients[CleanPid(contact.Pid)]
 			if list != nil {
 				sendMessage(conn, TMESS_STATUS, contact.Pid, "1")
 			} else {
@@ -465,7 +465,7 @@ func processInfoContact(message Message, conn *net.Conn, curClient *Client, id s
 	if err == nil {
 		p := getContact(curClient.Profile.Contacts, i)
 		if p != nil {
-			list := clients[cleanPid(p.Pid)]
+			list := clients[CleanPid(p.Pid)]
 			if list != nil {
 				for _, peer := range list {
 					sendMessage(peer.Conn, TMESS_INFO_CONTACT, curClient.Pid, p.Digest, p.Salt)
@@ -501,7 +501,7 @@ func processInfoAnswer(message Message, conn *net.Conn, curClient *Client, id st
 		return
 	}
 
-	list := clients[cleanPid(message.Messages[0])]
+	list := clients[CleanPid(message.Messages[0])]
 	if list != nil {
 		for _, peer := range list {
 			if peer.Profile != nil {
@@ -538,7 +538,7 @@ func processManage(message Message, conn *net.Conn, curClient *Client, id string
 	if err == nil {
 		p := getContact(curClient.Profile.Contacts, i)
 		if p != nil {
-			list := clients[cleanPid(p.Pid)]
+			list := clients[CleanPid(p.Pid)]
 			if list != nil {
 				for _, peer := range list {
 					var content []string
@@ -585,7 +585,7 @@ func processContactReverse(message Message, conn *net.Conn, curClient *Client, i
 	value, exist := profiles.Load(message.Messages[0])
 	if exist {
 		curProfile := value.(*Profile)
-		if getSHA256(curProfile.Pass+curClient.Salt) == message.Messages[1] {
+		if GetSHA256(curProfile.Pass+curClient.Salt) == message.Messages[1] {
 			i := getNewId(curProfile.Contacts)
 
 			c := &Contact{}

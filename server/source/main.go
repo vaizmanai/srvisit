@@ -2,6 +2,7 @@ package main
 
 import (
 	. "./common"
+	"./service"
 	"fmt"
 	"math/rand"
 	"os"
@@ -23,18 +24,17 @@ func main() {
 
 	runtime.GOMAXPROCS(runtime.NumCPU())
 	rand.Seed(time.Now().UTC().UnixNano())
-	clients = make(map[string][]*Client, 0)
 
 	LoadOptions()
 
 	if Options.Mode != NODE {
 		loadVNCList()
-		loadCounters()
-		loadProfiles()
+		LoadCounters()
+		LoadProfiles()
 
-		go helperThread() //используем для периодических действий(сохранения и т.п.)
+		go service.HelperThread() //используем для периодических действий(сохранения и т.п.)
 		go HttpServer()   //обработка веб запросов
-		go mainServer()   //обработка основных команд от клиентов и агентов
+		go service.MainServer()   //обработка основных команд от клиентов и агентов
 	}
 
 	myIp = getMyIpByExternalApi()
@@ -45,15 +45,15 @@ func main() {
 	}
 
 	if Options.Mode != MASTER {
-		go dataServer() //обработка потоков данных от клиентов
+		go service.DataServer() //обработка потоков данных от клиентов
 	}
 
 	if Options.Mode == MASTER {
-		go masterServer() //общаемся с агентами
+		go service.MasterServer() //общаемся с агентами
 	}
 
 	if Options.Mode == NODE {
-		go nodeClient() //клинет подключающийся к мастеру
+		go service.NodeClient() //клинет подключающийся к мастеру
 	}
 
 	var r string

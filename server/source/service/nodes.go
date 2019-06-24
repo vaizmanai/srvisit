@@ -1,7 +1,7 @@
-package main
+package service
 
 import (
-	. "./common"
+	. "../common"
 	"bufio"
 	"bytes"
 	"encoding/json"
@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-func masterServer() {
+func MasterServer() {
 	LogAdd(MESS_INFO, "masterServer запустился")
 
 	ln, err := net.Listen("tcp", ":"+Options.MasterPort)
@@ -29,7 +29,7 @@ func masterServer() {
 			break
 		}
 
-		go ping(&conn)
+		go Ping(&conn)
 		go masterHandler(&conn)
 	}
 
@@ -38,7 +38,7 @@ func masterServer() {
 }
 
 func masterHandler(conn *net.Conn) {
-	id := randomString(MAX_LEN_ID_LOG)
+	id := RandomString(MAX_LEN_ID_LOG)
 	LogAdd(MESS_INFO, id+" masterServer получил соединение")
 
 	var curNode Node
@@ -76,9 +76,9 @@ func masterHandler(conn *net.Conn) {
 		LogAdd(MESS_DETAIL, id+" "+fmt.Sprint(message))
 
 		//обрабатываем полученное сообщение
-		if len(processingAgent) > message.TMessage {
-			if processingAgent[message.TMessage].Processing != nil {
-				go processingAgent[message.TMessage].Processing(message, conn, &curNode, id) //от одного агента может много приходить сообщений, не тормозим их
+		if len(ProcessingAgent) > message.TMessage {
+			if ProcessingAgent[message.TMessage].Processing != nil {
+				go ProcessingAgent[message.TMessage].Processing(message, conn, &curNode, id) //от одного агента может много приходить сообщений, не тормозим их
 			} else {
 				LogAdd(MESS_INFO, id+" нет обработчика для сообщения "+fmt.Sprint(message.TMessage))
 				time.Sleep(time.Millisecond * WAIT_IDLE)
@@ -109,7 +109,7 @@ func masterHandler(conn *net.Conn) {
 	LogAdd(MESS_INFO, id+" masterServer потерял соединение с агентом")
 }
 
-func nodeClient() {
+func NodeClient() {
 
 	LogAdd(MESS_INFO, "nodeClient запустился")
 
@@ -125,14 +125,14 @@ func nodeClient() {
 
 		hostname, err := os.Hostname()
 		if err != nil {
-			hostname = randomString(MAX_LEN_ID_NODE)
+			hostname = RandomString(MAX_LEN_ID_NODE)
 		}
 		if len(Options.Hostname) > 0 {
 			hostname = Options.Hostname
 		}
 		sendMessage(&conn, TMESS_AGENT_AUTH, hostname, Options.MasterPassword, REVISIT_VERSION, fmt.Sprint(coordinates[0], ";", coordinates[1]))
 
-		go ping(&conn)
+		go Ping(&conn)
 
 		reader := bufio.NewReader(conn)
 		for {
@@ -167,9 +167,9 @@ func nodeClient() {
 			LogAdd(MESS_DETAIL, fmt.Sprint(message))
 
 			//обрабатываем полученное сообщение
-			if len(processingAgent) > message.TMessage {
-				if processingAgent[message.TMessage].Processing != nil {
-					go processingAgent[message.TMessage].Processing(message, &conn, nil, randomString(MAX_LEN_ID_LOG))
+			if len(ProcessingAgent) > message.TMessage {
+				if ProcessingAgent[message.TMessage].Processing != nil {
+					go ProcessingAgent[message.TMessage].Processing(message, &conn, nil, RandomString(MAX_LEN_ID_LOG))
 				} else {
 					LogAdd(MESS_INFO, "nodeClient нет обработчика для сообщения")
 					time.Sleep(time.Millisecond * WAIT_IDLE)
@@ -235,13 +235,13 @@ func processAgentAuth(message Message, conn *net.Conn, curNode *Node, id string)
 	} else {
 		//получим координаты по ip
 		go func() {
-			curNode.coordinates = getCoordinatesByYandex(curNode.Ip)
+			curNode.coordinates = GetCoordinatesByYandex(curNode.Ip)
 		}()
 	}
 
 	curNode.Conn = conn
 	curNode.Name = message.Messages[0]
-	curNode.Id = randomString(MAX_LEN_ID_NODE)
+	curNode.Id = RandomString(MAX_LEN_ID_NODE)
 
 	h, _, err := net.SplitHostPort((*conn).RemoteAddr().String())
 	if err == nil {
@@ -303,7 +303,7 @@ func processAgentAddBytes(message Message, conn *net.Conn, curNode *Node, id str
 
 	bytes, err := strconv.Atoi(message.Messages[0])
 	if err == nil {
-		addCounter(uint64(bytes))
+		AddCounter(uint64(bytes))
 	}
 }
 

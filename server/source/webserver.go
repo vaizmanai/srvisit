@@ -2,6 +2,7 @@ package main
 
 import (
 	. "./common"
+	. "./service"
 	"encoding/json"
 	"fmt"
 	"github.com/gorilla/mux"
