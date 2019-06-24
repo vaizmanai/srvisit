@@ -1,6 +1,5 @@
 
-.idea/*
-vnc.list
+.idea
 profiles.list
 options.cfg
 resource/vnc/*

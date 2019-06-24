@@ -1,6 +1,7 @@
 package main
 
 import (
+	. "./common"
 	"encoding/json"
 	"fmt"
 	"github.com/gorilla/mux"
@@ -8,7 +9,7 @@ import (
 	"time"
 )
 
-func httpServer() {
+func HttpServer() {
 	myRouter := mux.NewRouter().StrictSlash(false)
 
 	//-----------------------
@@ -38,15 +39,15 @@ func httpServer() {
 	//-----------------------
 
 	go func() {
-		err := http.ListenAndServe(":"+options.HttpServerPort, myRouter)
+		err := http.ListenAndServe(":"+Options.HttpServerPort, myRouter)
 		if err != nil {
-			logAdd(MESS_ERROR, "webServer не смог занять порт: "+fmt.Sprint(err))
+			LogAdd(MESS_ERROR, "webServer не смог занять порт: "+fmt.Sprint(err))
 		}
 	}()
 
-	err := http.ListenAndServeTLS(":"+options.HttpsServerPort, options.HttpsCertPath, options.HttpsKeyPath, myRouter)
+	err := http.ListenAndServeTLS(":"+Options.HttpsServerPort, Options.HttpsCertPath, Options.HttpsKeyPath, myRouter)
 	if err != nil {
-		logAdd(MESS_ERROR, "webServer не смог занять порт: "+fmt.Sprint(err))
+		LogAdd(MESS_ERROR, "webServer не смог занять порт: "+fmt.Sprint(err))
 	}
 
 }
@@ -83,7 +84,7 @@ func checkAuth(f func(w http.ResponseWriter, r *http.Request, client *Client)) h
 
 func handleCORS(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		logAdd(MESS_FULL, "get req: "+r.RequestURI)
+		LogAdd(MESS_FULL, "get req: "+r.RequestURI)
 
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "POST, GET, PUT, DELETE, OPTIONS")
@@ -109,7 +110,7 @@ func handleAuth(w http.ResponseWriter, r *http.Request) {
 	pid := string(r.FormValue("abc"))
 	token := string(r.FormValue("cba"))
 
-	logAdd(MESS_INFO, "trying to auth app "+pid)
+	LogAdd(MESS_INFO, "trying to auth app "+pid)
 
 	list := clients[cleanPid(pid)]
 	for _, c := range list {

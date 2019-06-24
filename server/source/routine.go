@@ -1,6 +1,7 @@
 package main
 
 import (
+	. "./common"
 	"crypto/sha256"
 	"crypto/tls"
 	"encoding/json"
@@ -18,14 +19,14 @@ import (
 )
 
 func helperThread() {
-	logAdd(MESS_INFO, "helperThread запустился")
+	LogAdd(MESS_INFO, "helperThread запустился")
 	for true {
 		saveProfiles()
 		swiftCounter()
 
 		time.Sleep(time.Second * WAIT_HELPER_CYCLE)
 	}
-	logAdd(MESS_INFO, "helperThread закончил работу")
+	LogAdd(MESS_INFO, "helperThread закончил работу")
 }
 
 func getPid(serial string) string {
@@ -66,47 +67,6 @@ func getPid(serial string) string {
 	}
 
 	return fmt.Sprintf("%d:%d:%d:%d", b, c, d, e)
-}
-
-func logAdd(TMessage int, Messages string) {
-	if options.FDebug && typeLog >= TMessage {
-
-		if logFile == nil {
-			var err error
-			if options.mode == NODE {
-				logFile, err = os.Create("node_" + LOG_NAME)
-			} else {
-				logFile, err = os.Create(LOG_NAME)
-			}
-			if err != nil {
-				fmt.Println(fmt.Sprint(time.Now().Format("02 Jan 2006 15:04:05.000000")) + "\t" + messLogText[MESS_ERROR] + ":\tcouldn't create log file: " + fmt.Sprint(err))
-				return
-			}
-		}
-
-		//todo наверное стоит убрать, но пока мешает пинг в логах
-		if strings.Contains(Messages, "buff (31): {\"TMessage\":18,\"Messages\":null}") || strings.Contains(Messages, "{18 []}") {
-			return
-		}
-
-		logFile.Write([]byte(fmt.Sprint(time.Now().Format("02 Jan 2006 15:04:05.000000")) + "\t" + messLogText[TMessage] + ":\t" + Messages + "\n"))
-		fmt.Println(fmt.Sprint(time.Now().Format("02 Jan 2006 15:04:05.000000")) + "\t" + messLogText[TMessage] + ":\t" + Messages)
-
-		fs, err := logFile.Stat()
-		if err != nil {
-			return
-		}
-		if fs.Size() > LOG_SIZE {
-			logFile.Close()
-			if options.mode == NODE {
-				os.Rename("node_"+LOG_NAME, "node_"+LOG_NAME+".back")
-			} else {
-				os.Rename(LOG_NAME, LOG_NAME+".back")
-			}
-			logFile = nil
-		}
-	}
-
 }
 
 func createMessage(TMessage int, Messages ...string) Message {
@@ -151,7 +111,7 @@ func printMessage(TMessage int, Messages ...string) []byte {
 
 func sendMessage(conn *net.Conn, TMessage int, Messages ...string) bool {
 	if conn == nil {
-		logAdd(MESS_ERROR, "нет сокета для отправки")
+		LogAdd(MESS_ERROR, "нет сокета для отправки")
 		return false
 	}
 
@@ -304,13 +264,13 @@ func saveProfiles() {
 				os.Rename(FILE_PROFILES+".tmp", FILE_PROFILES)
 			} else {
 				f.Close()
-				logAdd(MESS_ERROR, "Не удалось сохранить профили: "+fmt.Sprint(err))
+				LogAdd(MESS_ERROR, "Не удалось сохранить профили: "+fmt.Sprint(err))
 			}
 		} else {
-			logAdd(MESS_ERROR, "Не удалось сохранить профили: "+fmt.Sprint(err))
+			LogAdd(MESS_ERROR, "Не удалось сохранить профили: "+fmt.Sprint(err))
 		}
 	} else {
-		logAdd(MESS_ERROR, "Не удалось сохранить профили: "+fmt.Sprint(err))
+		LogAdd(MESS_ERROR, "Не удалось сохранить профили: "+fmt.Sprint(err))
 	}
 }
 
@@ -328,54 +288,13 @@ func loadProfiles() {
 					profiles.Store(list[i].Email, &list[i])
 				}
 			} else {
-				logAdd(MESS_ERROR, "Не получилось загрузить профили: "+fmt.Sprint(err))
+				LogAdd(MESS_ERROR, "Не получилось загрузить профили: "+fmt.Sprint(err))
 			}
 		} else {
-			logAdd(MESS_ERROR, "Не получилось загрузить профили: "+fmt.Sprint(err))
+			LogAdd(MESS_ERROR, "Не получилось загрузить профили: "+fmt.Sprint(err))
 		}
 	} else {
-		logAdd(MESS_ERROR, "Не получилось загрузить профили: "+fmt.Sprint(err))
-	}
-}
-
-func saveOptions() {
-	b, err := json.Marshal(options)
-	if err == nil {
-		f, err := os.Create(FILE_OPTIONS + ".tmp")
-		if err == nil {
-			n, err := f.Write(b)
-			if n == len(b) && err == nil {
-				f.Close()
-
-				os.Remove(FILE_OPTIONS)
-				os.Rename(FILE_OPTIONS+".tmp", FILE_OPTIONS)
-			} else {
-				f.Close()
-				logAdd(MESS_ERROR, "Не удалось сохранить настройки: "+fmt.Sprint(err))
-			}
-		} else {
-			logAdd(MESS_ERROR, "Не удалось сохранить настройки: "+fmt.Sprint(err))
-		}
-	} else {
-		logAdd(MESS_ERROR, "Не удалось сохранить настройки: "+fmt.Sprint(err))
-	}
-}
-
-func loadOptions() {
-	f, err := os.Open(FILE_OPTIONS)
-	defer f.Close()
-	if err == nil {
-		b, err := ioutil.ReadAll(f)
-		if err == nil {
-			err = json.Unmarshal(b, &options)
-			if err != nil {
-				logAdd(MESS_ERROR, "Не получилось загрузить настройки: "+fmt.Sprint(err))
-			}
-		} else {
-			logAdd(MESS_ERROR, "Не получилось загрузить настройки: "+fmt.Sprint(err))
-		}
-	} else {
-		logAdd(MESS_ERROR, "Не получилось загрузить настройки: "+fmt.Sprint(err))
+		LogAdd(MESS_ERROR, "Не получилось загрузить профили: "+fmt.Sprint(err))
 	}
 }
 
@@ -390,13 +309,13 @@ func loadVNCList() {
 			if err == nil {
 				defaultVnc = 0
 			} else {
-				logAdd(MESS_ERROR, "Не получилось загрузить список VNC: "+fmt.Sprint(err))
+				LogAdd(MESS_ERROR, "Не получилось загрузить список VNC: "+fmt.Sprint(err))
 			}
 		} else {
-			logAdd(MESS_ERROR, "Не получилось загрузить список VNC: "+fmt.Sprint(err))
+			LogAdd(MESS_ERROR, "Не получилось загрузить список VNC: "+fmt.Sprint(err))
 		}
 	} else {
-		logAdd(MESS_ERROR, "Не получилось загрузить список VNC: "+fmt.Sprint(err))
+		LogAdd(MESS_ERROR, "Не получилось загрузить список VNC: "+fmt.Sprint(err))
 	}
 }
 
@@ -466,14 +385,14 @@ func saveCounters() {
 		if err == nil {
 			n, err := f.Write(b)
 			if n != len(b) || err != nil {
-				logAdd(MESS_ERROR, "Не удалось сохранить счетчики: "+fmt.Sprint(err))
+				LogAdd(MESS_ERROR, "Не удалось сохранить счетчики: "+fmt.Sprint(err))
 			}
 			f.Close()
 		} else {
-			logAdd(MESS_ERROR, "Не удалось сохранить счетчики: "+fmt.Sprint(err))
+			LogAdd(MESS_ERROR, "Не удалось сохранить счетчики: "+fmt.Sprint(err))
 		}
 	} else {
-		logAdd(MESS_ERROR, "Не удалось сохранить счетчики: "+fmt.Sprint(err))
+		LogAdd(MESS_ERROR, "Не удалось сохранить счетчики: "+fmt.Sprint(err))
 	}
 }
 
@@ -487,13 +406,13 @@ func loadCounters() {
 		if err == nil {
 			err = json.Unmarshal(b, &counterData)
 			if err != nil {
-				logAdd(MESS_ERROR, "Не получилось загрузить счетчики: "+fmt.Sprint(err))
+				LogAdd(MESS_ERROR, "Не получилось загрузить счетчики: "+fmt.Sprint(err))
 			}
 		} else {
-			logAdd(MESS_ERROR, "Не получилось загрузить счетчики: "+fmt.Sprint(err))
+			LogAdd(MESS_ERROR, "Не получилось загрузить счетчики: "+fmt.Sprint(err))
 		}
 	} else {
-		logAdd(MESS_ERROR, "Не получилось загрузить счетчики: "+fmt.Sprint(err))
+		LogAdd(MESS_ERROR, "Не получилось загрузить счетчики: "+fmt.Sprint(err))
 	}
 
 	counterData.CounterClients[int(counterData.currentPos.Hour())] = 0
@@ -687,7 +606,7 @@ func getMyIpByExternalApi() string {
 }
 
 func getCoordinatesByYandex(addr string) [2]float64 {
-	resp, err := http.Post(URI_YANDEX_MAP, "application/x-www-form-urlencoded", strings.NewReader("json="+url.QueryEscape(fmt.Sprintf(REQ_YANDEX_MAP, options.YandexApiKeyMap, addr))))
+	resp, err := http.Post(URI_YANDEX_MAP, "application/x-www-form-urlencoded", strings.NewReader("json="+url.QueryEscape(fmt.Sprintf(REQ_YANDEX_MAP, Options.YandexApiKeyMap, addr))))
 	if err != nil {
 		//todo надо мой айпи адрес как-то указать
 		return [2]float64{0, 0}
@@ -720,24 +639,24 @@ func greaterVersionThan(client *Client, version float64) bool {
 }
 
 func sendEmail(to string, body string) (bool, error) {
-	emailConn, err := tls.Dial("tcp", options.ServerSMTP+":"+options.PortSMTP, &tls.Config {InsecureSkipVerify: true})
+	emailConn, err := tls.Dial("tcp", Options.ServerSMTP+":"+Options.PortSMTP, &tls.Config{InsecureSkipVerify: true})
 	if err != nil {
 		return false, err
 	}
 
 	defer emailConn.Close()
 
-	client, err := smtp.NewClient(emailConn, options.ServerSMTP)
+	client, err := smtp.NewClient(emailConn, Options.ServerSMTP)
 	if err != nil {
 		return false, err
 	}
 
-	err = client.Auth(smtp.PlainAuth("", options.LoginSMTP, options.PassSMTP, options.ServerSMTP))
+	err = client.Auth(smtp.PlainAuth("", Options.LoginSMTP, Options.PassSMTP, Options.ServerSMTP))
 	if err != nil {
 		return false, err
 	}
 
-	err = client.Mail(options.LoginSMTP)
+	err = client.Mail(Options.LoginSMTP)
 	if err != nil {
 		return false, err
 	}

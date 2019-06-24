@@ -2,8 +2,6 @@ package main
 
 import (
 	"net"
-	"net/http"
-	"os"
 	"sync"
 	"time"
 )
@@ -16,11 +14,9 @@ const (
 	CODE_LENGTH      = 64 //длина code
 	PASSWORD_LENGTH  = 14
 	FILE_PROFILES    = "profiles.list"
-	FILE_OPTIONS     = "options.cfg"
 	FILE_COUNTERS    = "counters.json"
 	FILE_VNCLIST     = "vnc.list"
-	LOG_NAME         = "log.txt"
-	LOG_SIZE         = 20 * 1024 * 1024 //20MB
+
 	MAX_LEN_ID_LOG   = 6
 	MAX_LEN_ID_NODE  = 8
 	LEN_SALT         = 16
@@ -29,15 +25,15 @@ const (
 	PREDEFINED_PASS  = "0000"
 	URI_IPIFY_API    = "https://api.ipify.org/"
 	URI_YANDEX_MAP   = "http://api.lbs.yandex.net/geolocation"
-	REQ_YANDEX_MAP   = "{" +
-		"\"common\":{" +
-		"\"version\":\"1.0\"," +
-		"\"api_key\":\"%s\"" +
-		"}," +
-		"\"ip\":{" +
-		"\"address_v4\":\"%s\"" +
-		"}" +
-		"}"
+	REQ_YANDEX_MAP   = `{
+							"common":{
+								"version": "1.0",
+								"api_key": "%s"
+							},
+							"ip":{
+								"address_v4":"%s"
+							}
+						}`
 
 	//константы ограничений
 	MIN_VERSION_FOR_NODES        = 0.97
@@ -66,11 +62,7 @@ const (
 	WAIT_IDLE_AGENT    = 2
 	WAIT_CONNECTION    = 30
 
-	//виды сообщений логов
-	MESS_ERROR  = 1
-	MESS_INFO   = 2
-	MESS_DETAIL = 3
-	MESS_FULL   = 4
+
 
 	//виды сообщений
 	TMESS_DEAUTH          = 0  //деаутентификация()
@@ -105,30 +97,10 @@ const (
 
 	TMESS_AGENT_PING = 18
 
-	REGULAR = 0
-	MASTER  = 1
-	NODE    = 2
+
 )
 
 var (
-	//опции по-умолчанию
-	options = Options{
-		MainServerPort:  "65471",
-		DataServerPort:  "65475",
-		HttpServerPort:  "8090",
-		HttpsServerPort: "8091",
-		HttpsCertPath:   "cert.pem",
-		HttpsKeyPath:    "key.pem",
-		SizeBuff:        16000,
-		AdminLogin:      "admin",
-		AdminPass:       "admin",
-		mode:            REGULAR,
-		MyCoordinates:   [2]float64{0, 0},
-		FDebug:          true,
-		MasterServer:    "data.rvisit.net",
-		MasterPort:      "65470",
-		MasterPassword:  "master",
-	}
 
 	//считаем всякую бесполезную информацию или нет
 	counterData struct {
@@ -170,12 +142,6 @@ var (
 		{"Профиль", "/profile/my"},
 		{"reVisit", "/resource/reVisit.exe"}}
 
-	//максимальный уровень логов
-	typeLog = MESS_FULL
-
-	//файл для хранения лога
-	logFile *os.File
-
 	//карта подключенных клиентов
 	//clients 		sync.Map
 	clients     map[string][]*Client
@@ -192,14 +158,6 @@ var (
 
 	//сокет до мастера
 	master *net.Conn
-
-	//текстовая расшифровка сообщений для логов
-	messLogText = []string{
-		"BLANK",
-		"ERROR",
-		"INFO",
-		"DETAIL",
-		"FULL"}
 
 	//текстовая расшифровка статических сообщений
 	messStaticText = []string{
@@ -247,21 +205,6 @@ var (
 
 		18: {TMESS_AGENT_PING, processAgentPing}}
 
-	//функции для обработки web api
-	processingWeb = []ProcessingWeb{
-		{"defaultvnc", processApiDefaultVnc},
-		{"listvnc", processApiListVnc},
-		{"getlog", processApiGetLog},
-		{"clearlog", processApiClearLog},
-		{"profile_save", processApiProfileSave},
-		{"profile_get", processApiProfileGet},
-		{"save_options", processApiSaveOptions},
-		{"options_save", processApiOptionsSave},
-		{"reload", processApiReload},
-		{"reopen", processApiReopen},
-		{"options_get", processApiOptionsGet},
-		{"version", processApiVersion}}
-
 	//список доступных vnc клиентов и выбранный по-умолчанию
 	defaultVnc = 0
 	arrayVnc   []VNC
@@ -291,12 +234,6 @@ type Node struct {
 	coordinates [2]float64
 }
 
-//обработчик для веб запроса
-type ProcessingWeb struct {
-	Make       string
-	Processing func(w http.ResponseWriter, r *http.Request)
-}
-
 //обработчик для запросов агенту
 type ProcessingAgent struct {
 	TMessage   int
@@ -315,52 +252,7 @@ type Message struct {
 	Messages []string
 }
 
-//сохраняемые опции
-type Options struct {
-	//настройки smtp сервера
-	ServerSMTP string
-	PortSMTP   string
-	LoginSMTP  string
-	PassSMTP   string
 
-	//реквизиты сервера
-	MainServerPort string
-
-	//реквизиты сервер
-	DataServerPort string
-
-	//реквизиты веб сервера
-	HttpServerPort  string
-	HttpsServerPort string
-	HttpsCertPath   string
-	HttpsKeyPath    string
-
-	//размер буфера для операций с сокетами
-	SizeBuff int
-
-	//учетка для админ панели
-	AdminLogin string
-	AdminPass  string
-
-	//режим работы экземпляра сервера
-	mode          int
-	MyCoordinates [2]float64
-	Hostname      string
-
-	//мастер сервер, если он нужен
-	MasterServer   string
-	MasterPort     string
-	MasterPassword string
-
-	//ключ для отображения на карте точек клиентов
-	YandexApiKeyMap string
-
-	//актуальная версия клиента, используем при обновлении и на сайте
-	Version string
-
-	//очевидно что флаг для отладки
-	FDebug bool
-}
 
 //информация о внц и основные команды для управления им
 type VNC struct {

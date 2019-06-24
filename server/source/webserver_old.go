@@ -1,6 +1,7 @@
 package main
 
 import (
+	. "./common"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -11,6 +12,29 @@ import (
 	"strconv"
 	"time"
 )
+
+var (
+	//функции для обработки web api
+	processingWeb = []ProcessingWeb{
+		{"defaultvnc", processApiDefaultVnc},
+		{"listvnc", processApiListVnc},
+		{"getlog", processApiGetLog},
+		{"clearlog", processApiClearLog},
+		{"profile_save", processApiProfileSave},
+		{"profile_get", processApiProfileGet},
+		{"save_Options", processApiSaveOptions},
+		{"Options_save", processApiOptionsSave},
+		{"reload", processApiReload},
+		{"reopen", processApiReopen},
+		{"Options_get", processApiOptionsGet},
+		{"version", processApiVersion}}
+)
+
+//обработчик для веб запроса
+type ProcessingWeb struct {
+	Make       string
+	Processing func(w http.ResponseWriter, r *http.Request)
+}
 
 //хэндлеры для профиля
 func handleProfileWelcome(w http.ResponseWriter, r *http.Request) {
@@ -69,7 +93,7 @@ func handleResources(w http.ResponseWriter, r *http.Request) {
 	connectionsString := ""
 
 	var buf1 string
-	if options.mode == MASTER {
+	if Options.Mode == MASTER {
 		connectionsString = connectionsString + fmt.Sprint("\n\n<a href='#'>агенты</a><br><pre>\n")
 		nodes.Range(func(key interface{}, value interface{}) bool {
 			agent := value.(*Node)
@@ -256,7 +280,7 @@ func handleOptions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	file, _ := os.Open("resource/admin/options.html")
+	file, _ := os.Open("resource/admin/Options.html")
 	body, err := ioutil.ReadAll(file)
 	if err == nil {
 		file.Close()
@@ -302,7 +326,7 @@ func handleAPI(w http.ResponseWriter, r *http.Request) {
 			if m.Processing != nil {
 				m.Processing(w, r)
 			} else {
-				logAdd(MESS_INFO, "WEB Нет обработчика для сообщения")
+				LogAdd(MESS_INFO, "WEB Нет обработчика для сообщения")
 				time.Sleep(time.Millisecond * WAIT_IDLE)
 			}
 			return
@@ -310,18 +334,18 @@ func handleAPI(w http.ResponseWriter, r *http.Request) {
 	}
 
 	time.Sleep(time.Millisecond * WAIT_IDLE)
-	logAdd(MESS_ERROR, "WEB Неизвестное сообщение")
+	LogAdd(MESS_ERROR, "WEB Неизвестное сообщение")
 	http.Error(w, "bad request", http.StatusBadRequest)
 }
 
 //раскрытие api
 func processApiDefaultVnc(w http.ResponseWriter, r *http.Request) {
-	logAdd(MESS_INFO, "WEB Запрос vnc версии по-умолчанию")
+	LogAdd(MESS_INFO, "WEB Запрос vnc версии по-умолчанию")
 
 	if len(arrayVnc) < defaultVnc {
 		buff, err := json.Marshal(arrayVnc[defaultVnc])
 		if err != nil {
-			logAdd(MESS_ERROR, "WEB Не получилось отправить версию VNC")
+			LogAdd(MESS_ERROR, "WEB Не получилось отправить версию VNC")
 			return
 		}
 		w.Write(buff)
@@ -331,11 +355,11 @@ func processApiDefaultVnc(w http.ResponseWriter, r *http.Request) {
 }
 
 func processApiListVnc(w http.ResponseWriter, r *http.Request) {
-	logAdd(MESS_INFO, "WEB Запрос списка vnc")
+	LogAdd(MESS_INFO, "WEB Запрос списка vnc")
 
 	buff, err := json.Marshal(arrayVnc)
 	if err != nil {
-		logAdd(MESS_ERROR, "WEB Не получилось отправить список VNC")
+		LogAdd(MESS_ERROR, "WEB Не получилось отправить список VNC")
 		return
 	}
 	w.Write(buff)
@@ -346,7 +370,7 @@ func processApiGetLog(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logAdd(MESS_INFO, "WEB Запрос log")
+	LogAdd(MESS_INFO, "WEB Запрос log")
 	file, _ := os.Open(LOG_NAME)
 	log, err := ioutil.ReadAll(file)
 	if err == nil {
@@ -360,11 +384,8 @@ func processApiClearLog(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logAdd(MESS_INFO, "WEB Запрос очистки log")
-	if logFile != nil {
-		logFile.Close()
-		logFile = nil
-	}
+	LogAdd(MESS_INFO, "WEB Запрос очистки log")
+	ClearLog()
 	http.Redirect(w, r, "/admin/logs", http.StatusTemporaryRedirect)
 }
 
@@ -374,7 +395,7 @@ func processApiProfileSave(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logAdd(MESS_INFO, "WEB Запрос сохранения профиля "+curProfile.Email)
+	LogAdd(MESS_INFO, "WEB Запрос сохранения профиля "+curProfile.Email)
 
 	pass1 := string(r.FormValue("abc"))
 	pass2 := string(r.FormValue("def"))
@@ -399,7 +420,7 @@ func processApiProfileGet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logAdd(MESS_INFO, "WEB Запрос информации профиля "+curProfile.Email)
+	LogAdd(MESS_INFO, "WEB Запрос информации профиля "+curProfile.Email)
 
 	newProfile := *curProfile
 	newProfile.Pass = "*****"
@@ -417,9 +438,9 @@ func processApiSaveOptions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logAdd(MESS_INFO, "WEB Запрос сохранения опций")
+	LogAdd(MESS_INFO, "WEB Запрос сохранения опций")
 
-	saveOptions()
+	SaveOptions()
 
 	handleOptions(w, r)
 }
@@ -429,7 +450,7 @@ func processApiReload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logAdd(MESS_INFO, "WEB Запрос на перезапуск сервера")
+	LogAdd(MESS_INFO, "WEB Запрос на перезапуск сервера")
 
 	//todo перезапуск
 	w.WriteHeader(http.StatusOK)
@@ -440,20 +461,20 @@ func processApiReopen(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logAdd(MESS_INFO, "WEB Запрос на чтение списка VNC")
+	LogAdd(MESS_INFO, "WEB Запрос на чтение списка VNC")
 
 	loadVNCList()
 	w.WriteHeader(http.StatusOK)
 }
 
 func processApiVersion(w http.ResponseWriter, r *http.Request) {
-	logAdd(MESS_INFO, "WEB Запрос актуальной версии")
+	LogAdd(MESS_INFO, "WEB Запрос актуальной версии")
 
 	var resp [2]string
-	resp[0] = options.Version
+	resp[0] = Options.Version
 	fs, err := os.Stat("resource/reVisit.exe")
 	if err != nil {
-		logAdd(MESS_ERROR, "WEB Отсутствует клиент")
+		LogAdd(MESS_ERROR, "WEB Отсутствует клиент")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -476,9 +497,9 @@ func processApiOptionsGet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logAdd(MESS_INFO, "WEB Запрос опций")
+	LogAdd(MESS_INFO, "WEB Запрос опций")
 
-	b, err := json.Marshal(options)
+	b, err := json.Marshal(Options)
 	if err == nil {
 		w.Write(b)
 		return
@@ -492,7 +513,7 @@ func processApiOptionsSave(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logAdd(MESS_INFO, "WEB Запрос сохранения опций")
+	LogAdd(MESS_INFO, "WEB Запрос сохранения опций")
 
 	portsmtp := string(r.FormValue("portsmtp"))
 	loginsmtp := string(r.FormValue("loginsmtp"))
@@ -504,23 +525,23 @@ func processApiOptionsSave(w http.ResponseWriter, r *http.Request) {
 
 	mode, err := strconv.Atoi(string(r.FormValue("mode")))
 	if err == nil {
-		options.mode = mode
+		Options.Mode = mode
 	}
 
 	bufsize, err := strconv.Atoi(string(r.FormValue("bufsize")))
 	if err == nil {
-		options.SizeBuff = bufsize
+		Options.SizeBuff = bufsize
 	}
 
-	options.PortSMTP = portsmtp
-	options.LoginSMTP = loginsmtp
-	options.PassSMTP = passsmtp
-	options.AdminLogin = loginadmin
-	options.AdminPass = passadmin
-	options.YandexApiKeyMap = yandex
-	options.Version = version
+	Options.PortSMTP = portsmtp
+	Options.LoginSMTP = loginsmtp
+	Options.PassSMTP = passsmtp
+	Options.AdminLogin = loginadmin
+	Options.AdminPass = passadmin
+	Options.YandexApiKeyMap = yandex
+	Options.Version = version
 
-	saveOptions()
+	SaveOptions()
 	handleOptions(w, r)
 }
 
@@ -534,13 +555,13 @@ func checkProfileAuth(w http.ResponseWriter, r *http.Request) *Profile {
 
 		if exist {
 			if value.(*Profile).Pass == pass {
-				//logAdd(MESS_INFO, "WWW Аутентификация успешна " + user + "/"+ r.RemoteAddr)
+				//LogAdd(MESS_INFO, "WWW Аутентификация успешна " + user + "/"+ r.RemoteAddr)
 				return value.(*Profile)
 			}
 		}
 	}
 
-	logAdd(MESS_ERROR, "WWW Аутентификация профиля провалилась "+r.RemoteAddr)
+	LogAdd(MESS_ERROR, "WWW Аутентификация профиля провалилась "+r.RemoteAddr)
 	w.Header().Set("WWW-Authenticate", "Basic")
 	http.Error(w, "auth req", http.StatusUnauthorized)
 	return nil
@@ -550,12 +571,12 @@ func checkAdminAuth(w http.ResponseWriter, r *http.Request) bool {
 
 	user, pass, ok := r.BasicAuth()
 	if ok {
-		if user == options.AdminLogin && pass == options.AdminPass {
+		if user == Options.AdminLogin && pass == Options.AdminPass {
 			return true
 		}
 	}
 
-	logAdd(MESS_ERROR, "WWW Аутентификация админки провалилась "+r.RemoteAddr)
+	LogAdd(MESS_ERROR, "WWW Аутентификация админки провалилась "+r.RemoteAddr)
 	w.Header().Set("WWW-Authenticate", "Basic")
 	http.Error(w, "auth req", http.StatusUnauthorized)
 	return false
@@ -691,7 +712,7 @@ func addClientsStatisticsAdmin() string {
 func addAgentsAdmin() string {
 	var webClientsStatistic []WebClientStatistic
 
-	if options.mode == REGULAR {
+	if Options.Mode == REGULAR {
 		var webClientStatistic WebClientStatistic
 
 		webClientStatistic.Latitude = coordinates[0]
