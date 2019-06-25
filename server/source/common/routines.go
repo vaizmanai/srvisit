@@ -17,9 +17,6 @@ import (
 )
 
 var (
-    //максимальный уровень логов
-    typeLog = MessFull
-
     //файл для хранения лога
     logFile *os.File
 
@@ -33,7 +30,7 @@ var (
 )
 
 func LogAdd(TMessage int, Messages string) {
-    if Options.FDebug && typeLog >= TMessage {
+    if Options.DebugFlag && Options.LogLevel >= TMessage {
 
         if logFile == nil {
             var err error

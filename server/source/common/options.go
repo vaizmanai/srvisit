@@ -95,10 +95,11 @@ var (
         AdminPass:       "admin",
         Mode:            ModeRegular,
         MyCoordinates:   [2]float64{0, 0},
-        FDebug:          true,
+        DebugFlag:       true,
         MasterServer:    "data.rvisit.net",
         MasterPort:      "65470",
         MasterPassword:  "master",
+        LogLevel:        MessFull,
     }
 
     //считаем всякую бесполезную информацию или нет
@@ -172,8 +173,8 @@ type options struct {
     //актуальная версия клиента, используем при обновлении и на сайте
     Version string
 
-    //очевидно что флаг для отладки
-    FDebug bool
+    DebugFlag bool //очевидно что флаг для отладки
+    LogLevel  int  //максимальный уровень логов
 }
 
 //информация о внц и основные команды для управления им
