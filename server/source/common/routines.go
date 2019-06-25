@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math/rand"
+	"net"
 	"net/http"
 	"net/smtp"
 	"net/url"
@@ -335,4 +336,135 @@ func SendEmail(to string, body string) (bool, error) {
 
 	err = client.Quit()
 	return true, err
+}
+
+func GetCounterHour() []string {
+	return getCounter(counterData.CounterBytes[:], counterData.CounterConnections[:], counterData.CounterClients[:], 24, int(counterData.currentPos.Hour()))
+}
+
+func GetCounterDayWeek() []string {
+	return getCounter(counterData.CounterDayWeekBytes[:], counterData.CounterDayWeekConnections[:], counterData.CounterDayWeekClients[:], 7, int(counterData.currentPos.Weekday()))
+}
+
+func GetCounterDay() []string {
+	return getCounter(counterData.CounterDayBytes[:], counterData.CounterDayConnections[:], counterData.CounterDayClients[:], 31, int(counterData.currentPos.Day()-1))
+}
+
+func GetCounterDayYear() []string {
+	return getCounter(counterData.CounterDayYearBytes[:], counterData.CounterDayYearConnections[:], counterData.CounterDayYearClients[:], 365, int(counterData.currentPos.YearDay()-1))
+}
+
+func GetCounterMonth() []string {
+	return getCounter(counterData.CounterMonthBytes[:], counterData.CounterMonthConnections[:], counterData.CounterMonthClients[:], 12, int(counterData.currentPos.Month()-1))
+}
+
+func getCounter(bytes []uint64, connections []uint64, clients []uint64, maxIndex int, curIndex int) []string {
+	h := curIndex + 1
+
+	values1 := append(bytes[h:], bytes[:h]...)
+	values2 := append(connections[h:], connections[:h]...)
+	values3 := append(clients[h:], clients[:h]...)
+
+	for i := 0; i < maxIndex; i++ {
+		values1[i] = values1[i] / 2
+		values2[i] = values2[i] / 2
+	}
+
+	headers := make([]int, 0)
+	for i := h; i < maxIndex; i++ {
+		headers = append(headers, i)
+	}
+	for i := 0; i < h; i++ {
+		headers = append(headers, i)
+	}
+
+	stringHeaders := "["
+	for i := 0; i < maxIndex; i++ {
+		stringHeaders = stringHeaders + "'" + fmt.Sprint(headers[i]+1) + "'"
+		if i != maxIndex-1 {
+			stringHeaders = stringHeaders + ", "
+		}
+	}
+	stringHeaders = stringHeaders + "]"
+
+	stringValues1 := "["
+	for i := 0; i < maxIndex; i++ {
+		stringValues1 = stringValues1 + fmt.Sprint(values1[i]/1024) //in Kb
+		if i != maxIndex-1 {
+			stringValues1 = stringValues1 + ", "
+		}
+	}
+	stringValues1 = stringValues1 + "]"
+
+	stringValues2 := "["
+	for i := 0; i < maxIndex; i++ {
+		stringValues2 = stringValues2 + fmt.Sprint(values2[i])
+		if i != maxIndex-1 {
+			stringValues2 = stringValues2 + ", "
+		}
+	}
+	stringValues2 = stringValues2 + "]"
+
+	stringValues3 := "["
+	for i := 0; i < maxIndex; i++ {
+		stringValues3 = stringValues3 + fmt.Sprint(values3[i])
+		if i != maxIndex-1 {
+			stringValues3 = stringValues3 + ", "
+		}
+	}
+	stringValues3 = stringValues3 + "]"
+
+	answer := make([]string, 0)
+	answer = append(answer, stringHeaders)
+	answer = append(answer, stringValues1)
+	answer = append(answer, stringValues2)
+	answer = append(answer, stringValues3)
+
+	return answer
+}
+
+func checkError(err error) {
+	if err != nil {
+		panic(err)
+	}
+}
+
+func GetMyIp() string {
+	int, err := net.Interfaces()
+	checkError(err)
+
+	ip := net.IPv4zero.String()
+	for _, i := range int {
+		if (i.Flags&net.FlagLoopback == 0) && (i.Flags&net.FlagPointToPoint == 0) && (i.Flags&net.FlagUp == 1) {
+			z, err := i.Addrs()
+			checkError(err)
+
+			for _, j := range z {
+				x, _, _ := net.ParseCIDR(j.String())
+
+				if x.IsGlobalUnicast() && x.To4() != nil {
+					ip = x.To4().String()
+					return ip
+				}
+			}
+		}
+	}
+
+	return ip
+}
+
+func GetMyIpByExternalApi() string {
+	resp, err := http.Get(URI_IPIFY_API)
+	if err != nil {
+		//todo надо мой айпи адрес как-то указать
+		return ""
+	}
+
+	b, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		//todo надо мой айпи адрес как-то указать
+		return ""
+	}
+
+	return string(b)
 }

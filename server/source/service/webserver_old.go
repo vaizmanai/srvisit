@@ -1,7 +1,7 @@
-package main
+package service
 
 import (
-	. "./common"
+	. "../common"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -28,7 +28,41 @@ var (
 		{"reopen", processApiReopen},
 		{"Options_get", processApiOptionsGet},
 		{"version", processApiVersion}}
+
+	//меню веб интерфейса админки
+	menuAdmin = []itemMenu{
+		{"Логи", "/admin/logs"},
+		{"Настройки", "/admin/options"},
+		{"Ресурсы", "/admin/resources"},
+		{"Статистика", "/admin/statistics"},
+		{"reVisit", "/resource/reVisit.exe"}}
+
+	//меню веб интерфейса профиля
+	menuProfile = []itemMenu{
+		{"Профиль", "/profile/my"},
+		{"reVisit", "/resource/reVisit.exe"}}
 )
+
+//меню для веба
+type itemMenu struct {
+	Capt string
+	Link string
+}
+
+type WebClientStatistic struct {
+	Latitude  float64
+	Longitude float64
+	Pid       string
+	Ip        string
+	Note      string
+}
+
+type WebConnectionStatistic struct {
+	Client1 WebClientStatistic
+	Client2 WebClientStatistic
+
+	Node WebClientStatistic
+}
 
 //обработчик для веб запроса
 type ProcessingWeb struct {
@@ -119,7 +153,7 @@ func handleResources(w http.ResponseWriter, r *http.Request) {
 			client.profiles.Range(func(k interface{}, v interface{}) bool {
 
 				var capt string
-				c := getContactByPid(v.(*Profile).Contacts, cleanPid(client.Pid)) //todo потом убрать, лишние итерации не сильно нам интересны
+				c := getContactByPid(v.(*Profile).Contacts, CleanPid(client.Pid)) //todo потом убрать, лишние итерации не сильно нам интересны
 				if c != nil {
 					capt = fmt.Sprint("/ ", c.Caption)
 				}
@@ -238,31 +272,31 @@ func handleStatistics(w http.ResponseWriter, r *http.Request) {
 		body = pageReplace(body, "$connections", addConnectionsAdmin())
 		body = pageReplace(body, "$agents", addAgentsAdmin())
 
-		charts := getCounterHour()
+		charts := GetCounterHour()
 		body = pageReplace(body, "$headers01", charts[0]) //по часам
 		body = pageReplace(body, "$values01", charts[1])
 		body = pageReplace(body, "$values02", charts[2])
 		body = pageReplace(body, "$values21", charts[3])
 
-		charts = getCounterDayWeek()
+		charts = GetCounterDayWeek()
 		body = pageReplace(body, "$headers02", charts[0]) //по дням недели
 		body = pageReplace(body, "$values03", charts[1])
 		body = pageReplace(body, "$values04", charts[2])
 		body = pageReplace(body, "$values22", charts[3])
 
-		charts = getCounterDay()
+		charts = GetCounterDay()
 		body = pageReplace(body, "$headers03", charts[0]) //по дням месяца
 		body = pageReplace(body, "$values05", charts[1])
 		body = pageReplace(body, "$values06", charts[2])
 		body = pageReplace(body, "$values23", charts[3])
 
-		charts = getCounterDayYear()
+		charts = GetCounterDayYear()
 		body = pageReplace(body, "$headers04", charts[0]) //по дням года
 		body = pageReplace(body, "$values07", charts[1])
 		body = pageReplace(body, "$values08", charts[2])
 		body = pageReplace(body, "$values24", charts[3])
 
-		charts = getCounterMonth()
+		charts = GetCounterMonth()
 		body = pageReplace(body, "$headers05", charts[0]) //по месяцам
 		body = pageReplace(body, "$values09", charts[1])
 		body = pageReplace(body, "$values10", charts[2])
@@ -463,7 +497,7 @@ func processApiReopen(w http.ResponseWriter, r *http.Request) {
 
 	LogAdd(MESS_INFO, "WEB Запрос на чтение списка VNC")
 
-	loadVNCList()
+	LoadVNCList()
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -580,91 +614,6 @@ func checkAdminAuth(w http.ResponseWriter, r *http.Request) bool {
 	w.Header().Set("WWW-Authenticate", "Basic")
 	http.Error(w, "auth req", http.StatusUnauthorized)
 	return false
-}
-
-func getCounter(bytes []uint64, connections []uint64, clients []uint64, maxIndex int, curIndex int) []string {
-	h := curIndex + 1
-
-	values1 := append(bytes[h:], bytes[:h]...)
-	values2 := append(connections[h:], connections[:h]...)
-	values3 := append(clients[h:], clients[:h]...)
-
-	for i := 0; i < maxIndex; i++ {
-		values1[i] = values1[i] / 2
-		values2[i] = values2[i] / 2
-	}
-
-	headers := make([]int, 0)
-	for i := h; i < maxIndex; i++ {
-		headers = append(headers, i)
-	}
-	for i := 0; i < h; i++ {
-		headers = append(headers, i)
-	}
-
-	stringHeaders := "["
-	for i := 0; i < maxIndex; i++ {
-		stringHeaders = stringHeaders + "'" + fmt.Sprint(headers[i]+1) + "'"
-		if i != maxIndex-1 {
-			stringHeaders = stringHeaders + ", "
-		}
-	}
-	stringHeaders = stringHeaders + "]"
-
-	stringValues1 := "["
-	for i := 0; i < maxIndex; i++ {
-		stringValues1 = stringValues1 + fmt.Sprint(values1[i]/1024) //in Kb
-		if i != maxIndex-1 {
-			stringValues1 = stringValues1 + ", "
-		}
-	}
-	stringValues1 = stringValues1 + "]"
-
-	stringValues2 := "["
-	for i := 0; i < maxIndex; i++ {
-		stringValues2 = stringValues2 + fmt.Sprint(values2[i])
-		if i != maxIndex-1 {
-			stringValues2 = stringValues2 + ", "
-		}
-	}
-	stringValues2 = stringValues2 + "]"
-
-	stringValues3 := "["
-	for i := 0; i < maxIndex; i++ {
-		stringValues3 = stringValues3 + fmt.Sprint(values3[i])
-		if i != maxIndex-1 {
-			stringValues3 = stringValues3 + ", "
-		}
-	}
-	stringValues3 = stringValues3 + "]"
-
-	answer := make([]string, 0)
-	answer = append(answer, stringHeaders)
-	answer = append(answer, stringValues1)
-	answer = append(answer, stringValues2)
-	answer = append(answer, stringValues3)
-
-	return answer
-}
-
-func getCounterHour() []string {
-	return getCounter(counterData.CounterBytes[:], counterData.CounterConnections[:], counterData.CounterClients[:], 24, int(counterData.currentPos.Hour()))
-}
-
-func getCounterDayWeek() []string {
-	return getCounter(counterData.CounterDayWeekBytes[:], counterData.CounterDayWeekConnections[:], counterData.CounterDayWeekClients[:], 7, int(counterData.currentPos.Weekday()))
-}
-
-func getCounterDay() []string {
-	return getCounter(counterData.CounterDayBytes[:], counterData.CounterDayConnections[:], counterData.CounterDayClients[:], 31, int(counterData.currentPos.Day()-1))
-}
-
-func getCounterDayYear() []string {
-	return getCounter(counterData.CounterDayYearBytes[:], counterData.CounterDayYearConnections[:], counterData.CounterDayYearClients[:], 365, int(counterData.currentPos.YearDay()-1))
-}
-
-func getCounterMonth() []string {
-	return getCounter(counterData.CounterMonthBytes[:], counterData.CounterMonthConnections[:], counterData.CounterMonthClients[:], 12, int(counterData.currentPos.Month()-1))
 }
 
 func pageReplace(e []byte, a string, b string) []byte {

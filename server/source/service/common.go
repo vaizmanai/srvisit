@@ -310,61 +310,6 @@ func (client *Client) removeClient() {
 	clientMutex.Unlock()
 }
 
-func SaveProfiles() {
-	var list []*Profile
-
-	profiles.Range(func(key interface{}, value interface{}) bool {
-		profile := value.(*Profile)
-		list = append(list, profile)
-		return true
-	})
-
-	b, err := json.Marshal(list)
-	if err == nil {
-		f, err := os.Create(FILE_PROFILES + ".tmp")
-		if err == nil {
-			n, err := f.Write(b)
-			if n == len(b) && err == nil {
-				f.Close()
-
-				os.Remove(FILE_PROFILES)
-				os.Rename(FILE_PROFILES+".tmp", FILE_PROFILES)
-			} else {
-				f.Close()
-				LogAdd(MESS_ERROR, "Не удалось сохранить профили: "+fmt.Sprint(err))
-			}
-		} else {
-			LogAdd(MESS_ERROR, "Не удалось сохранить профили: "+fmt.Sprint(err))
-		}
-	} else {
-		LogAdd(MESS_ERROR, "Не удалось сохранить профили: "+fmt.Sprint(err))
-	}
-}
-
-func LoadProfiles() {
-	var list []Profile
-
-	f, err := os.Open(FILE_PROFILES)
-	defer f.Close()
-	if err == nil {
-		b, err := ioutil.ReadAll(f)
-		if err == nil {
-			err = json.Unmarshal(b, &list)
-			if err == nil {
-				for i := 0; i < len(list); i++ {
-					profiles.Store(list[i].Email, &list[i])
-				}
-			} else {
-				LogAdd(MESS_ERROR, "Не получилось загрузить профили: "+fmt.Sprint(err))
-			}
-		} else {
-			LogAdd(MESS_ERROR, "Не получилось загрузить профили: "+fmt.Sprint(err))
-		}
-	} else {
-		LogAdd(MESS_ERROR, "Не получилось загрузить профили: "+fmt.Sprint(err))
-	}
-}
-
 func HelperThread() {
 	LogAdd(MESS_INFO, "helperThread запустился")
 	for true {
@@ -385,7 +330,6 @@ func greaterVersionThan(client *Client, version float64) bool {
 
 	return true
 }
-
 
 func delContact(first *Contact, id int) *Contact {
 	if first == nil {
@@ -538,11 +482,94 @@ func checkStatuses(curClient *Client, first *Contact) {
 	sendRawBytes(curClient.Conn, statuses)
 }
 
-
 func sendRawBytes(conn *net.Conn, bytes []byte) bool {
 	_, err := (*conn).Write(bytes)
 	if err != nil {
 		return false
 	}
 	return true
+}
+
+func UpdateMyIP() {
+	myIp = GetMyIpByExternalApi()
+	if Options.MyCoordinates == [2]float64{0, 0} { //options.MyCoordinates[0] == 0 && options.MyCoordinates[1] == 0 {
+		coordinates = GetCoordinatesByYandex(myIp)
+	} else {
+		coordinates = Options.MyCoordinates
+	}
+}
+
+func SaveProfiles() {
+	var list []*Profile
+
+	profiles.Range(func(key interface{}, value interface{}) bool {
+		profile := value.(*Profile)
+		list = append(list, profile)
+		return true
+	})
+
+	b, err := json.Marshal(list)
+	if err == nil {
+		f, err := os.Create(FILE_PROFILES + ".tmp")
+		if err == nil {
+			n, err := f.Write(b)
+			if n == len(b) && err == nil {
+				f.Close()
+
+				os.Remove(FILE_PROFILES)
+				os.Rename(FILE_PROFILES+".tmp", FILE_PROFILES)
+			} else {
+				f.Close()
+				LogAdd(MESS_ERROR, "Не удалось сохранить профили: "+fmt.Sprint(err))
+			}
+		} else {
+			LogAdd(MESS_ERROR, "Не удалось сохранить профили: "+fmt.Sprint(err))
+		}
+	} else {
+		LogAdd(MESS_ERROR, "Не удалось сохранить профили: "+fmt.Sprint(err))
+	}
+}
+
+func LoadProfiles() {
+	var list []Profile
+
+	f, err := os.Open(FILE_PROFILES)
+	defer f.Close()
+	if err == nil {
+		b, err := ioutil.ReadAll(f)
+		if err == nil {
+			err = json.Unmarshal(b, &list)
+			if err == nil {
+				for i := 0; i < len(list); i++ {
+					profiles.Store(list[i].Email, &list[i])
+				}
+			} else {
+				LogAdd(MESS_ERROR, "Не получилось загрузить профили: "+fmt.Sprint(err))
+			}
+		} else {
+			LogAdd(MESS_ERROR, "Не получилось загрузить профили: "+fmt.Sprint(err))
+		}
+	} else {
+		LogAdd(MESS_ERROR, "Не получилось загрузить профили: "+fmt.Sprint(err))
+	}
+}
+
+func LoadVNCList() {
+	f, err := os.Open(FILE_VNCLIST)
+	defer f.Close()
+	if err == nil {
+		b, err := ioutil.ReadAll(f)
+		if err == nil {
+			err = json.Unmarshal(b, &arrayVnc)
+			if err == nil {
+				defaultVnc = 0
+			} else {
+				LogAdd(MESS_ERROR, "Не получилось загрузить список VNC: "+fmt.Sprint(err))
+			}
+		} else {
+			LogAdd(MESS_ERROR, "Не получилось загрузить список VNC: "+fmt.Sprint(err))
+		}
+	} else {
+		LogAdd(MESS_ERROR, "Не получилось загрузить список VNC: "+fmt.Sprint(err))
+	}
 }

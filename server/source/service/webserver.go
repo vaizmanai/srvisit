@@ -1,8 +1,7 @@
-package main
+package service
 
 import (
-	. "./common"
-	. "./service"
+	. "../common"
 	"encoding/json"
 	"fmt"
 	"github.com/gorilla/mux"
@@ -67,7 +66,7 @@ func checkAuth(f func(w http.ResponseWriter, r *http.Request, client *Client)) h
 			return
 		}
 
-		list := clients[cleanPid(cookie_pid.Value)]
+		list := clients[CleanPid(cookie_pid.Value)]
 		for _, c := range list {
 			if c.Token == cookie_token.Value {
 				cookie_pid.Expires = time.Now().Add(WEB_TIMEOUT_HOUR * time.Hour)
@@ -113,7 +112,7 @@ func handleAuth(w http.ResponseWriter, r *http.Request) {
 
 	LogAdd(MESS_INFO, "trying to auth app "+pid)
 
-	list := clients[cleanPid(pid)]
+	list := clients[CleanPid(pid)]
 	for _, c := range list {
 		if c.Token == token {
 			cookie_pid := http.Cookie{Name: "abc", Value: pid, Expires: time.Now().Add(WEB_TIMEOUT_HOUR * time.Hour)}

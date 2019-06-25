@@ -28,21 +28,16 @@ func main() {
 	LoadOptions()
 
 	if Options.Mode != NODE {
-		loadVNCList()
+		service.LoadVNCList()
 		LoadCounters()
-		LoadProfiles()
+		service.LoadProfiles()
 
 		go service.HelperThread() //используем для периодических действий(сохранения и т.п.)
-		go HttpServer()   //обработка веб запросов
+		go service.HttpServer()   //обработка веб запросов
 		go service.MainServer()   //обработка основных команд от клиентов и агентов
 	}
 
-	myIp = getMyIpByExternalApi()
-	if Options.MyCoordinates == [2]float64{0, 0} { //options.MyCoordinates[0] == 0 && options.MyCoordinates[1] == 0 {
-		coordinates = getCoordinatesByYandex(myIp)
-	} else {
-		coordinates = Options.MyCoordinates
-	}
+	service.UpdateMyIP()
 
 	if Options.Mode != MASTER {
 		go service.DataServer() //обработка потоков данных от клиентов
