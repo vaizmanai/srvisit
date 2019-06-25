@@ -1,61 +1,61 @@
 package main
 
 import (
-	. "./common"
-	"./service"
-	"fmt"
-	"math/rand"
-	"os"
-	"runtime"
-	"strings"
-	"time"
+    . "./common"
+    "./service"
+    "fmt"
+    "math/rand"
+    "os"
+    "runtime"
+    "strings"
+    "time"
 )
 
 func main() {
-	for _, x := range os.Args {
-		if strings.Contains(x, "node") {
-			Options.Mode = NODE
-		} else if strings.Contains(x, "master") {
-			Options.Mode = MASTER
-		}
-	}
+    for _, x := range os.Args {
+        if strings.Contains(x, "node") {
+            Options.Mode = ModeNode
+        } else if strings.Contains(x, "master") {
+            Options.Mode = ModeMaster
+        }
+    }
 
-	LogAdd(MESS_INFO, "Запускается сервер reVisit версии "+REVISIT_VERSION)
+    LogAdd(MessInfo, "Запускается сервер reVisit версии "+ReVisitVersion)
 
-	runtime.GOMAXPROCS(runtime.NumCPU())
-	rand.Seed(time.Now().UTC().UnixNano())
+    runtime.GOMAXPROCS(runtime.NumCPU())
+    rand.Seed(time.Now().UTC().UnixNano())
 
-	LoadOptions()
+    LoadOptions()
 
-	if Options.Mode != NODE {
-		service.LoadVNCList()
-		LoadCounters()
-		service.LoadProfiles()
+    if Options.Mode != ModeNode {
+        service.LoadVNCList()
+        LoadCounters()
+        service.LoadProfiles()
 
-		go service.HelperThread() //используем для периодических действий(сохранения и т.п.)
-		go service.HttpServer()   //обработка веб запросов
-		go service.MainServer()   //обработка основных команд от клиентов и агентов
-	}
+        go service.HelperThread() //используем для периодических действий(сохранения и т.п.)
+        go service.HttpServer()   //обработка веб запросов
+        go service.MainServer()   //обработка основных команд от клиентов и агентов
+    }
 
-	service.UpdateMyIP()
+    service.UpdateMyIP()
 
-	if Options.Mode != MASTER {
-		go service.DataServer() //обработка потоков данных от клиентов
-	}
+    if Options.Mode != ModeMaster {
+        go service.DataServer() //обработка потоков данных от клиентов
+    }
 
-	if Options.Mode == MASTER {
-		go service.MasterServer() //общаемся с агентами
-	}
+    if Options.Mode == ModeMaster {
+        go service.MasterServer() //общаемся с агентами
+    }
 
-	if Options.Mode == NODE {
-		go service.NodeClient() //клинет подключающийся к мастеру
-	}
+    if Options.Mode == ModeNode {
+        go service.NodeClient() //клинет подключающийся к мастеру
+    }
 
-	var r string
-	for r != "quit" {
-		fmt.Scanln(&r)
-		time.Sleep(time.Millisecond * WAIT_IDLE) //если запустить без консоли, то здесь цикл со 100% загрузкой процессора
-	}
+    var r string
+    for r != "quit" {
+        fmt.Scanln(&r)
+        time.Sleep(time.Millisecond * WaitIdle) //если запустить без консоли, то здесь цикл со 100% загрузкой процессора
+    }
 
-	LogAdd(MESS_INFO, "Завершили работу")
+    LogAdd(MessInfo, "Завершили работу")
 }

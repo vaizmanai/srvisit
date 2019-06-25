@@ -14,18 +14,18 @@ import (
 )
 
 func MasterServer() {
-	LogAdd(MESS_INFO, "masterServer запустился")
+	LogAdd(MessInfo, "masterServer запустился")
 
 	ln, err := net.Listen("tcp", ":"+Options.MasterPort)
 	if err != nil {
-		LogAdd(MESS_ERROR, "masterServer не смог занять порт")
+		LogAdd(MessError, "masterServer не смог занять порт")
 		os.Exit(1)
 	}
 
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
-			LogAdd(MESS_ERROR, "masterServer не смог занять сокет")
+			LogAdd(MessError, "masterServer не смог занять сокет")
 			break
 		}
 
@@ -34,12 +34,12 @@ func MasterServer() {
 	}
 
 	ln.Close()
-	LogAdd(MESS_INFO, "masterServer остановился")
+	LogAdd(MessInfo, "masterServer остановился")
 }
 
 func masterHandler(conn *net.Conn) {
-	id := RandomString(MAX_LEN_ID_LOG)
-	LogAdd(MESS_INFO, id+" masterServer получил соединение")
+	id := RandomString(MaxLengthIDLog)
+	LogAdd(MessInfo, id+" masterServer получил соединение")
 
 	var curNode Node
 
@@ -49,15 +49,15 @@ func masterHandler(conn *net.Conn) {
 		buff, err := reader.ReadBytes('}')
 
 		if err != nil {
-			LogAdd(MESS_ERROR, id+" ошибка чтения буфера")
+			LogAdd(MessError, id+" ошибка чтения буфера")
 			break
 		}
 
-		LogAdd(MESS_DETAIL, id+fmt.Sprint(" buff ("+strconv.Itoa(len(buff))+"): "+string(buff)))
+		LogAdd(MessDetail, id+fmt.Sprint(" buff ("+strconv.Itoa(len(buff))+"): "+string(buff)))
 
 		//удаляем мусор
 		if buff[0] != '{' {
-			LogAdd(MESS_INFO, id+" masterServer удаляем мусор")
+			LogAdd(MessInfo, id+" masterServer удаляем мусор")
 			if bytes.Index(buff, []byte("{")) >= 0 {
 				buff = buff[bytes.Index(buff, []byte("{")):]
 			} else {
@@ -68,24 +68,24 @@ func masterHandler(conn *net.Conn) {
 		var message Message
 		err = json.Unmarshal(buff, &message)
 		if err != nil {
-			LogAdd(MESS_ERROR, id+" ошибка разбора json")
-			time.Sleep(time.Millisecond * WAIT_IDLE)
+			LogAdd(MessError, id+" ошибка разбора json")
+			time.Sleep(time.Millisecond * WaitIdle)
 			continue
 		}
 
-		LogAdd(MESS_DETAIL, id+" "+fmt.Sprint(message))
+		LogAdd(MessDetail, id+" "+fmt.Sprint(message))
 
 		//обрабатываем полученное сообщение
 		if len(ProcessingAgent) > message.TMessage {
 			if ProcessingAgent[message.TMessage].Processing != nil {
 				go ProcessingAgent[message.TMessage].Processing(message, conn, &curNode, id) //от одного агента может много приходить сообщений, не тормозим их
 			} else {
-				LogAdd(MESS_INFO, id+" нет обработчика для сообщения "+fmt.Sprint(message.TMessage))
-				time.Sleep(time.Millisecond * WAIT_IDLE)
+				LogAdd(MessInfo, id+" нет обработчика для сообщения "+fmt.Sprint(message.TMessage))
+				time.Sleep(time.Millisecond * WaitIdle)
 			}
 		} else {
-			LogAdd(MESS_INFO, id+" неизвестное сообщение: "+fmt.Sprint(message.TMessage))
-			time.Sleep(time.Millisecond * WAIT_IDLE)
+			LogAdd(MessInfo, id+" неизвестное сообщение: "+fmt.Sprint(message.TMessage))
+			time.Sleep(time.Millisecond * WaitIdle)
 		}
 
 	}
@@ -106,18 +106,18 @@ func masterHandler(conn *net.Conn) {
 		return true
 	})
 
-	LogAdd(MESS_INFO, id+" masterServer потерял соединение с агентом")
+	LogAdd(MessInfo, id+" masterServer потерял соединение с агентом")
 }
 
 func NodeClient() {
 
-	LogAdd(MESS_INFO, "nodeClient запустился")
+	LogAdd(MessInfo, "nodeClient запустился")
 
 	for {
 		conn, err := net.Dial("tcp", Options.MasterServer+":"+Options.MasterPort)
 		if err != nil {
-			LogAdd(MESS_ERROR, "nodeClient не смог подключиться: "+fmt.Sprint(err))
-			time.Sleep(time.Second * WAIT_IDLE_AGENT)
+			LogAdd(MessError, "nodeClient не смог подключиться: "+fmt.Sprint(err))
+			time.Sleep(time.Second * WaitIdleAgent)
 			continue
 		}
 
@@ -125,12 +125,12 @@ func NodeClient() {
 
 		hostname, err := os.Hostname()
 		if err != nil {
-			hostname = RandomString(MAX_LEN_ID_NODE)
+			hostname = RandomString(MaxLengthIDNode)
 		}
 		if len(Options.Hostname) > 0 {
 			hostname = Options.Hostname
 		}
-		sendMessage(&conn, TMESS_AGENT_AUTH, hostname, Options.MasterPassword, REVISIT_VERSION, fmt.Sprint(coordinates[0], ";", coordinates[1]))
+		sendMessage(&conn, TMESS_AGENT_AUTH, hostname, Options.MasterPassword, ReVisitVersion, fmt.Sprint(coordinates[0], ";", coordinates[1]))
 
 		go Ping(&conn)
 
@@ -139,17 +139,17 @@ func NodeClient() {
 			buff, err := reader.ReadBytes('}')
 
 			if err != nil {
-				LogAdd(MESS_ERROR, "nodeClient ошибка чтения буфера: "+fmt.Sprint(err))
+				LogAdd(MessError, "nodeClient ошибка чтения буфера: "+fmt.Sprint(err))
 				break
 			}
 
-			LogAdd(MESS_DETAIL, fmt.Sprint("buff ("+strconv.Itoa(len(buff))+"): "+string(buff)))
+			LogAdd(MessDetail, fmt.Sprint("buff ("+strconv.Itoa(len(buff))+"): "+string(buff)))
 
 			//удаляем мусор
 			if buff[0] != '{' {
-				LogAdd(MESS_INFO, "nodeClient удаляем мусор")
+				LogAdd(MessInfo, "nodeClient удаляем мусор")
 				if bytes.Index(buff, []byte("{")) >= 0 {
-					LogAdd(MESS_DETAIL, fmt.Sprint("buff ("+strconv.Itoa(len(buff))+"): "+string(buff)))
+					LogAdd(MessDetail, fmt.Sprint("buff ("+strconv.Itoa(len(buff))+"): "+string(buff)))
 					buff = buff[bytes.Index(buff, []byte("{")):]
 				} else {
 					continue
@@ -159,63 +159,63 @@ func NodeClient() {
 			var message Message
 			err = json.Unmarshal(buff, &message)
 			if err != nil {
-				LogAdd(MESS_ERROR, "nodeClient ошибка разбора json: "+fmt.Sprint(err))
-				time.Sleep(time.Millisecond * WAIT_IDLE)
+				LogAdd(MessError, "nodeClient ошибка разбора json: "+fmt.Sprint(err))
+				time.Sleep(time.Millisecond * WaitIdle)
 				continue
 			}
 
-			LogAdd(MESS_DETAIL, fmt.Sprint(message))
+			LogAdd(MessDetail, fmt.Sprint(message))
 
 			//обрабатываем полученное сообщение
 			if len(ProcessingAgent) > message.TMessage {
 				if ProcessingAgent[message.TMessage].Processing != nil {
-					go ProcessingAgent[message.TMessage].Processing(message, &conn, nil, RandomString(MAX_LEN_ID_LOG))
+					go ProcessingAgent[message.TMessage].Processing(message, &conn, nil, RandomString(MaxLengthIDLog))
 				} else {
-					LogAdd(MESS_INFO, "nodeClient нет обработчика для сообщения")
-					time.Sleep(time.Millisecond * WAIT_IDLE)
+					LogAdd(MessInfo, "nodeClient нет обработчика для сообщения")
+					time.Sleep(time.Millisecond * WaitIdle)
 				}
 			} else {
-				LogAdd(MESS_INFO, "nodeClient неизвестное сообщение: "+fmt.Sprint(message.TMessage))
-				time.Sleep(time.Millisecond * WAIT_IDLE)
+				LogAdd(MessInfo, "nodeClient неизвестное сообщение: "+fmt.Sprint(message.TMessage))
+				time.Sleep(time.Millisecond * WaitIdle)
 			}
 
 		}
 		conn.Close()
 	}
 
-	//LogAdd(MESS_INFO, "nodeClient остановился") //недостижимо???
+	//LogAdd(MessInfo, "nodeClient остановился") //недостижимо???
 }
 
 func processAgentAuth(message Message, conn *net.Conn, curNode *Node, id string) {
-	LogAdd(MESS_INFO, id+" пришла авторизация агента")
+	LogAdd(MessInfo, id+" пришла авторизация агента")
 
-	if Options.Mode == REGULAR {
-		LogAdd(MESS_ERROR, id+" режим не поддерживающий агентов")
+	if Options.Mode == ModeRegular {
+		LogAdd(MessError, id+" режим не поддерживающий агентов")
 		(*conn).Close()
 		return
 	}
 
-	if Options.Mode == NODE {
-		LogAdd(MESS_INFO, id+" пришел ответ на авторизацию")
+	if Options.Mode == ModeNode {
+		LogAdd(MessInfo, id+" пришел ответ на авторизацию")
 		return
 	}
 
-	time.Sleep(time.Millisecond * WAIT_IDLE)
+	time.Sleep(time.Millisecond * WaitIdle)
 
 	if len(message.Messages) < 3 {
-		LogAdd(MESS_ERROR, id+" не правильное кол-во полей")
+		LogAdd(MessError, id+" не правильное кол-во полей")
 		(*conn).Close()
 		return
 	}
 
-	if message.Messages[2] != REVISIT_VERSION {
-		LogAdd(MESS_ERROR, id+" не совместимая версия")
+	if message.Messages[2] != ReVisitVersion {
+		LogAdd(MessError, id+" не совместимая версия")
 		(*conn).Close()
 		return
 	}
 
 	if message.Messages[1] != Options.MasterPassword {
-		LogAdd(MESS_ERROR, id+" не правильный пароль")
+		LogAdd(MessError, id+" не правильный пароль")
 		(*conn).Close()
 		return
 	}
@@ -241,7 +241,7 @@ func processAgentAuth(message Message, conn *net.Conn, curNode *Node, id string)
 
 	curNode.Conn = conn
 	curNode.Name = message.Messages[0]
-	curNode.Id = RandomString(MAX_LEN_ID_NODE)
+	curNode.Id = RandomString(MaxLengthIDNode)
 
 	h, _, err := net.SplitHostPort((*conn).RemoteAddr().String())
 	if err == nil {
@@ -250,22 +250,22 @@ func processAgentAuth(message Message, conn *net.Conn, curNode *Node, id string)
 
 	if sendMessage(conn, TMESS_AGENT_AUTH, curNode.Id) {
 		nodes.Store(curNode.Id, curNode)
-		LogAdd(MESS_INFO, id+" авторизация агента успешна")
+		LogAdd(MessInfo, id+" авторизация агента успешна")
 	}
 
 	sendMessageToClients(TMESS_SERVERS, fmt.Sprint(true), curNode.Ip)
 }
 
 func processAgentAddCode(message Message, conn *net.Conn, curNode *Node, id string) {
-	if Options.Mode != NODE {
-		LogAdd(MESS_ERROR, id+" режим не поддерживающий агентов")
+	if Options.Mode != ModeNode {
+		LogAdd(MessError, id+" режим не поддерживающий агентов")
 		return
 	}
 
-	LogAdd(MESS_INFO, id+" пришла информация о создании сессии")
+	LogAdd(MessInfo, id+" пришла информация о создании сессии")
 
 	if len(message.Messages) != 1 {
-		LogAdd(MESS_ERROR, id+" не правильное кол-во полей")
+		LogAdd(MessError, id+" не правильное кол-во полей")
 		return
 	}
 
@@ -273,15 +273,15 @@ func processAgentAddCode(message Message, conn *net.Conn, curNode *Node, id stri
 }
 
 func processAgentDelCode(message Message, conn *net.Conn, curNode *Node, id string) {
-	if Options.Mode == REGULAR {
-		LogAdd(MESS_ERROR, id+" режим не поддерживающий агентов")
+	if Options.Mode == ModeRegular {
+		LogAdd(MessError, id+" режим не поддерживающий агентов")
 		return
 	}
 
-	LogAdd(MESS_INFO, id+" пришла информация об удалении сессии")
+	LogAdd(MessInfo, id+" пришла информация об удалении сессии")
 
 	if len(message.Messages) != 1 {
-		LogAdd(MESS_ERROR, id+" не правильное кол-во полей")
+		LogAdd(MessError, id+" не правильное кол-во полей")
 		return
 	}
 
@@ -289,15 +289,15 @@ func processAgentDelCode(message Message, conn *net.Conn, curNode *Node, id stri
 }
 
 func processAgentAddBytes(message Message, conn *net.Conn, curNode *Node, id string) {
-	if Options.Mode != MASTER {
-		LogAdd(MESS_ERROR, id+" режим не поддерживающий агентов")
+	if Options.Mode != ModeMaster {
+		LogAdd(MessError, id+" режим не поддерживающий агентов")
 		return
 	}
 
-	LogAdd(MESS_INFO, id+" пришла информация статистики")
+	LogAdd(MessInfo, id+" пришла информация статистики")
 
 	if len(message.Messages) != 1 {
-		LogAdd(MESS_ERROR, id+" не правильное кол-во полей")
+		LogAdd(MessError, id+" не правильное кол-во полей")
 		return
 	}
 
@@ -319,15 +319,15 @@ func sendMessageToMaster(TMessage int, Messages ...string) {
 }
 
 func processAgentNewConn(message Message, conn *net.Conn, curNode *Node, id string) {
-	if Options.Mode != MASTER {
-		LogAdd(MESS_ERROR, id+" режим не поддерживающий агентов")
+	if Options.Mode != ModeMaster {
+		LogAdd(MessError, id+" режим не поддерживающий агентов")
 		return
 	}
 
-	LogAdd(MESS_INFO, id+" пришла информация о том что агент получил соединение")
+	LogAdd(MessInfo, id+" пришла информация о том что агент получил соединение")
 
 	if len(message.Messages) != 1 {
-		LogAdd(MESS_ERROR, id+" не правильное кол-во полей")
+		LogAdd(MessError, id+" не правильное кол-во полей")
 		return
 	}
 
@@ -338,11 +338,11 @@ func processAgentNewConn(message Message, conn *net.Conn, curNode *Node, id stri
 		peers.node = curNode
 		//отправим запрос принимающей стороне
 		if !sendMessage(peers.client.Conn, TMESS_CONNECT, "", "", code, "simple", "client", peers.server.Pid, peers.address) {
-			LogAdd(MESS_ERROR, id+" не смогли отправить запрос принимающей стороне")
+			LogAdd(MessError, id+" не смогли отправить запрос принимающей стороне")
 		}
 	}
 }
 
 func processAgentPing(message Message, conn *net.Conn, curNode *Node, id string) {
-	//LogAdd(MESS_INFO, id + " пришел пинг")
+	//LogAdd(MessInfo, id + " пришел пинг")
 }

@@ -220,7 +220,7 @@ func createMessage(TMessage int, Messages ...string) Message {
 func Ping(conn *net.Conn) {
 	success := true
 	for success {
-		time.Sleep(time.Second * WAIT_PING)
+		time.Sleep(time.Second * WaitPing)
 		success = sendMessage(conn, TMESS_PING)
 	}
 }
@@ -240,7 +240,7 @@ func printMessage(TMessage int, Messages ...string) []byte {
 
 func sendMessage(conn *net.Conn, TMessage int, Messages ...string) bool {
 	if conn == nil {
-		LogAdd(MESS_ERROR, "нет сокета для отправки")
+		LogAdd(MessError, "нет сокета для отправки")
 		return false
 	}
 
@@ -311,14 +311,14 @@ func (client *Client) removeClient() {
 }
 
 func HelperThread() {
-	LogAdd(MESS_INFO, "helperThread запустился")
+	LogAdd(MessInfo, "helperThread запустился")
 	for true {
 		SaveProfiles()
 		SwiftCounter()
 
-		time.Sleep(time.Second * WAIT_HELPER_CYCLE)
+		time.Sleep(time.Second * WaitHelperCycle)
 	}
-	LogAdd(MESS_INFO, "helperThread закончил работу")
+	LogAdd(MessInfo, "helperThread закончил работу")
 }
 
 func greaterVersionThan(client *Client, version float64) bool {
@@ -520,13 +520,13 @@ func SaveProfiles() {
 				os.Rename(FILE_PROFILES+".tmp", FILE_PROFILES)
 			} else {
 				f.Close()
-				LogAdd(MESS_ERROR, "Не удалось сохранить профили: "+fmt.Sprint(err))
+				LogAdd(MessError, "Не удалось сохранить профили: "+fmt.Sprint(err))
 			}
 		} else {
-			LogAdd(MESS_ERROR, "Не удалось сохранить профили: "+fmt.Sprint(err))
+			LogAdd(MessError, "Не удалось сохранить профили: "+fmt.Sprint(err))
 		}
 	} else {
-		LogAdd(MESS_ERROR, "Не удалось сохранить профили: "+fmt.Sprint(err))
+		LogAdd(MessError, "Не удалось сохранить профили: "+fmt.Sprint(err))
 	}
 }
 
@@ -544,18 +544,18 @@ func LoadProfiles() {
 					profiles.Store(list[i].Email, &list[i])
 				}
 			} else {
-				LogAdd(MESS_ERROR, "Не получилось загрузить профили: "+fmt.Sprint(err))
+				LogAdd(MessError, "Не получилось загрузить профили: "+fmt.Sprint(err))
 			}
 		} else {
-			LogAdd(MESS_ERROR, "Не получилось загрузить профили: "+fmt.Sprint(err))
+			LogAdd(MessError, "Не получилось загрузить профили: "+fmt.Sprint(err))
 		}
 	} else {
-		LogAdd(MESS_ERROR, "Не получилось загрузить профили: "+fmt.Sprint(err))
+		LogAdd(MessError, "Не получилось загрузить профили: "+fmt.Sprint(err))
 	}
 }
 
 func LoadVNCList() {
-	f, err := os.Open(FILE_VNCLIST)
+	f, err := os.Open(VNCFileList)
 	defer f.Close()
 	if err == nil {
 		b, err := ioutil.ReadAll(f)
@@ -564,12 +564,12 @@ func LoadVNCList() {
 			if err == nil {
 				defaultVnc = 0
 			} else {
-				LogAdd(MESS_ERROR, "Не получилось загрузить список VNC: "+fmt.Sprint(err))
+				LogAdd(MessError, "Не получилось загрузить список VNC: "+fmt.Sprint(err))
 			}
 		} else {
-			LogAdd(MESS_ERROR, "Не получилось загрузить список VNC: "+fmt.Sprint(err))
+			LogAdd(MessError, "Не получилось загрузить список VNC: "+fmt.Sprint(err))
 		}
 	} else {
-		LogAdd(MESS_ERROR, "Не получилось загрузить список VNC: "+fmt.Sprint(err))
+		LogAdd(MessError, "Не получилось загрузить список VNC: "+fmt.Sprint(err))
 	}
 }

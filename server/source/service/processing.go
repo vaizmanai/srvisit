@@ -12,10 +12,10 @@ import (
 )
 
 func processVersion(message Message, conn *net.Conn, curClient *Client, id string) {
-	LogAdd(MESS_INFO, id+" пришла информация о версии")
+	LogAdd(MessInfo, id+" пришла информация о версии")
 
 	if len(message.Messages) != 1 {
-		LogAdd(MESS_ERROR, id+" не правильное кол-во полей")
+		LogAdd(MessError, id+" не правильное кол-во полей")
 		return
 	}
 
@@ -23,24 +23,24 @@ func processVersion(message Message, conn *net.Conn, curClient *Client, id strin
 }
 
 func processAuth(message Message, conn *net.Conn, curClient *Client, id string) {
-	LogAdd(MESS_INFO, id+" пришла авторизация")
+	LogAdd(MessInfo, id+" пришла авторизация")
 
 	if len(message.Messages) != 1 {
-		LogAdd(MESS_ERROR, id+" не правильное кол-во полей")
+		LogAdd(MessError, id+" не правильное кол-во полей")
 		return
 	}
 	if len(message.Messages[0]) < 3 {
-		time.Sleep(time.Millisecond * WAIT_IDLE)
+		time.Sleep(time.Millisecond * WaitIdle)
 		sendMessage(conn, TMESS_DEAUTH)
-		LogAdd(MESS_ERROR, id+" слабый serial")
+		LogAdd(MessError, id+" слабый serial")
 		return
 	}
 
 	s := GetPid(message.Messages[0])
-	LogAdd(MESS_INFO, id+" сгенерировали pid")
+	LogAdd(MessInfo, id+" сгенерировали pid")
 
-	salt := RandomString(LEN_SALT)
-	token := RandomString(LEN_TOKEN)
+	salt := RandomString(LengthSalt)
+	token := RandomString(LengthToken)
 
 	if sendMessage(conn, TMESS_AUTH, s, salt, token) {
 		curClient.Conn = conn
@@ -52,7 +52,7 @@ func processAuth(message Message, conn *net.Conn, curClient *Client, id string) 
 		curClient.coordinates = [2]float64{0, 0}
 
 		addClientToProfile(curClient)
-		LogAdd(MESS_INFO, id+" авторизация успешна")
+		LogAdd(MessInfo, id+" авторизация успешна")
 
 		//получим координаты по ip
 		go func() {
@@ -65,10 +65,10 @@ func processAuth(message Message, conn *net.Conn, curClient *Client, id string) 
 }
 
 func processNotification(message Message, conn *net.Conn, curClient *Client, id string) {
-	LogAdd(MESS_INFO, id+" уведомление пришло")
+	LogAdd(MessInfo, id+" уведомление пришло")
 
 	if len(message.Messages) != 2 {
-		LogAdd(MESS_ERROR, id+" не правильное кол-во полей")
+		LogAdd(MessError, id+" не правильное кол-во полей")
 		return
 	}
 
@@ -83,10 +83,10 @@ func processNotification(message Message, conn *net.Conn, curClient *Client, id 
 }
 
 func processConnect(message Message, conn *net.Conn, curClient *Client, id string) {
-	LogAdd(MESS_INFO, id+" обрабатываем запрос на подключение")
+	LogAdd(MessInfo, id+" обрабатываем запрос на подключение")
 
 	if len(message.Messages) < 2 {
-		LogAdd(MESS_ERROR, id+" не правильное кол-во полей")
+		LogAdd(MessError, id+" не правильное кол-во полей")
 		return
 	}
 
@@ -108,20 +108,20 @@ func processConnect(message Message, conn *net.Conn, curClient *Client, id strin
 
 		//отправим запрос на подключение всем, ответит только тот у кого пароль совпадет
 		for _, peer := range list {
-			code := RandomString(CODE_LENGTH)
+			code := RandomString(CodeLength)
 
 			//убедимся что версия клиента поддерживает соединения через агента
-			if !greaterVersionThan(peer, MIN_VERSION_FOR_NODES) {
+			if !greaterVersionThan(peer, MinimalVersionForNodes) {
 				address = ""
 			}
 			connectPeers(code, curClient, peer, address)
 
-			LogAdd(MESS_INFO, id+" запрашиваем коммуникацию у "+fmt.Sprint((*peer.Conn).RemoteAddr())+" для "+code)
+			LogAdd(MessInfo, id+" запрашиваем коммуникацию у "+fmt.Sprint((*peer.Conn).RemoteAddr())+" для "+code)
 			if !sendMessage(peer.Conn, TMESS_CONNECT, passDigest, salt, code, "simple", "server", curClient.Pid, address) { //тот кто передает трансляцию
 				disconnectPeers(code)
-				LogAdd(MESS_ERROR, id+" не смогли отправить запрос "+code)
-				if greaterVersionThan(curClient, MIN_VERSION_FOR_STATIC_ALERT) {
-					sendMessage(curClient.Conn, TMESS_STANDART_ALERT, fmt.Sprint(STATIC_MESSAGE_NETWORK_ERROR))
+				LogAdd(MessError, id+" не смогли отправить запрос "+code)
+				if greaterVersionThan(curClient, MinimalVersionForStaticAlert) {
+					sendMessage(curClient.Conn, TMESS_STANDART_ALERT, fmt.Sprint(StaticMessageNetworkError))
 				}
 			}
 
@@ -133,17 +133,17 @@ func processConnect(message Message, conn *net.Conn, curClient *Client, id strin
 		return
 	}
 
-	LogAdd(MESS_INFO, id+" нет такого пира")
+	LogAdd(MessInfo, id+" нет такого пира")
 	sendMessage(curClient.Conn, TMESS_NOTIFICATION, "Нет такого пира") //todo удалить
-	if greaterVersionThan(curClient, MIN_VERSION_FOR_STATIC_ALERT) {
-		sendMessage(curClient.Conn, TMESS_STANDART_ALERT, fmt.Sprint(STATIC_MESSAGE_ABSENT_ERROR))
+	if greaterVersionThan(curClient, MinimalVersionForStaticAlert) {
+		sendMessage(curClient.Conn, TMESS_STANDART_ALERT, fmt.Sprint(StaticMessageAbsentError))
 	}
 }
 
 func processDisconnect(message Message, conn *net.Conn, curClient *Client, id string) {
-	LogAdd(MESS_INFO, id+" пришел запрос на отключение")
+	LogAdd(MessInfo, id+" пришел запрос на отключение")
 	if len(message.Messages) < 1 {
-		LogAdd(MESS_ERROR, id+" не правильное кол-во полей")
+		LogAdd(MessError, id+" не правильное кол-во полей")
 		return
 	}
 
@@ -152,11 +152,11 @@ func processDisconnect(message Message, conn *net.Conn, curClient *Client, id st
 	if len(message.Messages) > 1 {
 		i, err := strconv.Atoi(message.Messages[1])
 		if err == nil {
-			LogAdd(MESS_ERROR, id+" текст ошибки: "+messStaticText[i])
+			LogAdd(MessError, id+" текст ошибки: "+messStaticText[i])
 			value, exists := channels.Load(code)
 			if exists {
 				peers := value.(*dConn)
-				if greaterVersionThan(peers.client, MIN_VERSION_FOR_STATIC_ALERT) {
+				if greaterVersionThan(peers.client, MinimalVersionForStaticAlert) {
 					sendMessage(peers.client.Conn, TMESS_STANDART_ALERT, message.Messages[1])
 				}
 			}
@@ -167,13 +167,13 @@ func processDisconnect(message Message, conn *net.Conn, curClient *Client, id st
 }
 
 func processPing(message Message, conn *net.Conn, curClient *Client, id string) {
-	//LogAdd(MESS_INFO, id + " пришел пинг")
+	//LogAdd(MessInfo, id + " пришел пинг")
 }
 
 func processLogin(message Message, conn *net.Conn, curClient *Client, id string) {
-	LogAdd(MESS_INFO, id+" пришел запрос на авторизацию профиля")
+	LogAdd(MessInfo, id+" пришел запрос на авторизацию профиля")
 	if len(message.Messages) != 2 {
-		LogAdd(MESS_ERROR, id+" не правильное кол-во полей")
+		LogAdd(MessError, id+" не правильное кол-во полей")
 		return
 	}
 
@@ -181,7 +181,7 @@ func processLogin(message Message, conn *net.Conn, curClient *Client, id string)
 	profile, ok := profiles.Load(email)
 	if ok == true {
 		if message.Messages[1] == GetSHA256(profile.(*Profile).Pass+curClient.Salt) {
-			LogAdd(MESS_INFO, id+" авторизация профиля пройдена")
+			LogAdd(MessInfo, id+" авторизация профиля пройдена")
 			sendMessage(conn, TMESS_LOGIN)
 
 			curClient.Profile = profile.(*Profile)
@@ -190,20 +190,20 @@ func processLogin(message Message, conn *net.Conn, curClient *Client, id string)
 			return
 		}
 	} else {
-		LogAdd(MESS_ERROR, id+" нет такой учетки")
+		LogAdd(MessError, id+" нет такой учетки")
 	}
 
-	LogAdd(MESS_ERROR, id+" авторизация профиля не успешна")
+	LogAdd(MessError, id+" авторизация профиля не успешна")
 	sendMessage(conn, TMESS_NOTIFICATION, "Авторизация профиля провалилась!") //todo удалить
-	if greaterVersionThan(curClient, MIN_VERSION_FOR_STATIC_ALERT) {
-		sendMessage(conn, TMESS_STANDART_ALERT, fmt.Sprint(STATIC_MESSAGE_AUTH_FAIL))
+	if greaterVersionThan(curClient, MinimalVersionForStaticAlert) {
+		sendMessage(conn, TMESS_STANDART_ALERT, fmt.Sprint(StaticMessageAuthFail))
 	}
 }
 
 func processReg(message Message, conn *net.Conn, curClient *Client, id string) {
-	LogAdd(MESS_INFO, id+" пришел запрос на регистрацию")
+	LogAdd(MessInfo, id+" пришел запрос на регистрацию")
 	if len(message.Messages) != 1 {
-		LogAdd(MESS_ERROR, id+" не правильное кол-во полей")
+		LogAdd(MessError, id+" не правильное кол-во полей")
 		return
 	}
 
@@ -213,16 +213,16 @@ func processReg(message Message, conn *net.Conn, curClient *Client, id string) {
 		newProfile := Profile{}
 		newProfile.Email = strings.ToLower(message.Messages[0])
 		if len(Options.ServerSMTP) > 0 {
-			newProfile.Pass = RandomString(PASSWORD_LENGTH)
+			newProfile.Pass = RandomString(PasswordLength)
 
 			msg := "Subject: Information from reVisit\r\n\r\nYour password is " + newProfile.Pass + "\r\n"
 
 			success, err := SendEmail(message.Messages[0], msg)
 			if !success {
-				LogAdd(MESS_ERROR, id+" не удалось отправить письмо с паролем: "+fmt.Sprint(err))
+				LogAdd(MessError, id+" не удалось отправить письмо с паролем: "+fmt.Sprint(err))
 				sendMessage(conn, TMESS_NOTIFICATION, "Не удалось отправить письмо с паролем!") //todo удалить
-				if greaterVersionThan(curClient, MIN_VERSION_FOR_STATIC_ALERT) {
-					sendMessage(conn, TMESS_STANDART_ALERT, fmt.Sprint(STATIC_MESSAGE_REG_MAIL))
+				if greaterVersionThan(curClient, MinimalVersionForStaticAlert) {
+					sendMessage(conn, TMESS_STANDART_ALERT, fmt.Sprint(StaticMessageRegMail))
 				}
 				return
 			}
@@ -230,36 +230,36 @@ func processReg(message Message, conn *net.Conn, curClient *Client, id string) {
 			profiles.Store(newProfile.Email, &newProfile)
 			sendMessage(conn, TMESS_REG, "success")
 			sendMessage(conn, TMESS_NOTIFICATION, "Учетная запись создана, Ваш пароль на почте!") //todo удалить
-			if greaterVersionThan(curClient, MIN_VERSION_FOR_STATIC_ALERT) {
-				sendMessage(conn, TMESS_STANDART_ALERT, fmt.Sprint(STATIC_MESSAGE_REG_SUCCESSFUL))
+			if greaterVersionThan(curClient, MinimalVersionForStaticAlert) {
+				sendMessage(conn, TMESS_STANDART_ALERT, fmt.Sprint(StaticMessageRegSuccessful))
 			}
-			LogAdd(MESS_INFO, id+" создали учетку")
+			LogAdd(MessInfo, id+" создали учетку")
 		} else {
-			newProfile.Pass = PREDEFINED_PASS
+			newProfile.Pass = PredefinedPass
 		}
 
 	} else {
 		//todo восстановление пароля
 
-		LogAdd(MESS_INFO, id+" такая учетка уже существует")
+		LogAdd(MessInfo, id+" такая учетка уже существует")
 		sendMessage(conn, TMESS_NOTIFICATION, "Такая учетная запись уже существует!") //todo удалить
-		if greaterVersionThan(curClient, MIN_VERSION_FOR_STATIC_ALERT) {
-			sendMessage(conn, TMESS_STANDART_ALERT, fmt.Sprint(STATIC_MESSAGE_REG_FAIL))
+		if greaterVersionThan(curClient, MinimalVersionForStaticAlert) {
+			sendMessage(conn, TMESS_STANDART_ALERT, fmt.Sprint(StaticMessageRegFail))
 		}
 	}
 
 }
 
 func processContact(message Message, conn *net.Conn, curClient *Client, id string) {
-	LogAdd(MESS_INFO, id+" пришел запрос на контакта")
+	LogAdd(MessInfo, id+" пришел запрос на контакта")
 	if len(message.Messages) != 6 {
-		LogAdd(MESS_ERROR, id+" не правильное кол-во полей")
+		LogAdd(MessError, id+" не правильное кол-во полей")
 		return
 	}
 
 	profile := curClient.Profile
 	if profile == nil {
-		LogAdd(MESS_ERROR, id+" не авторизован профиль")
+		LogAdd(MessError, id+" не авторизован профиль")
 		return
 	}
 
@@ -332,17 +332,17 @@ func processContact(message Message, conn *net.Conn, curClient *Client, id strin
 
 		processStatus(createMessage(TMESS_STATUS, fmt.Sprint(i)), conn, curClient, id)
 
-		LogAdd(MESS_INFO, id+" операция с контактом выполнена")
+		LogAdd(MessInfo, id+" операция с контактом выполнена")
 		return
 	}
-	LogAdd(MESS_ERROR, id+" операция с контактом провалилась")
+	LogAdd(MessError, id+" операция с контактом провалилась")
 }
 
 func processContacts(message Message, conn *net.Conn, curClient *Client, id string) {
-	LogAdd(MESS_INFO, id+" пришел запрос на обновления контактов")
+	LogAdd(MessInfo, id+" пришел запрос на обновления контактов")
 
 	if curClient.Profile == nil {
-		LogAdd(MESS_ERROR, id+" профиль не авторизован")
+		LogAdd(MessError, id+" профиль не авторизован")
 	}
 
 	//отправляем все контакты
@@ -350,19 +350,19 @@ func processContacts(message Message, conn *net.Conn, curClient *Client, id stri
 	if err == nil {
 		enc := url.PathEscape(string(b))
 		sendMessage(conn, TMESS_CONTACTS, enc)
-		LogAdd(MESS_INFO, id+" отправили контакты")
+		LogAdd(MessInfo, id+" отправили контакты")
 
 		processStatuses(createMessage(TMESS_STATUSES), conn, curClient, id)
 	} else {
-		LogAdd(MESS_ERROR, id+" не получилось отправить контакты: "+fmt.Sprint(err))
+		LogAdd(MessError, id+" не получилось отправить контакты: "+fmt.Sprint(err))
 	}
 }
 
 func processLogout(message Message, conn *net.Conn, curClient *Client, id string) {
-	LogAdd(MESS_INFO, id+" пришел запрос на выход")
+	LogAdd(MessInfo, id+" пришел запрос на выход")
 
 	if curClient.Profile == nil {
-		LogAdd(MESS_ERROR, id+" не авторизован профиль")
+		LogAdd(MessError, id+" не авторизован профиль")
 		return
 	}
 
@@ -371,15 +371,15 @@ func processLogout(message Message, conn *net.Conn, curClient *Client, id string
 }
 
 func processConnectContact(message Message, conn *net.Conn, curClient *Client, id string) {
-	LogAdd(MESS_INFO, id+" пришел запрос на подключение к контакту")
+	LogAdd(MessInfo, id+" пришел запрос на подключение к контакту")
 	if len(message.Messages) < 1 {
-		LogAdd(MESS_ERROR, id+" не правильное кол-во полей")
+		LogAdd(MessError, id+" не правильное кол-во полей")
 		return
 	}
 
 	profile := curClient.Profile
 	if profile == nil {
-		LogAdd(MESS_ERROR, id+" не авторизован профиль")
+		LogAdd(MessError, id+" не авторизован профиль")
 		return
 	}
 
@@ -393,30 +393,30 @@ func processConnectContact(message Message, conn *net.Conn, curClient *Client, i
 				processConnect(createMessage(TMESS_CONNECT, p.Pid, p.Digest, p.Salt), conn, curClient, id)
 			}
 		} else {
-			LogAdd(MESS_ERROR, id+" нет такого контакта в профиле")
+			LogAdd(MessError, id+" нет такого контакта в профиле")
 			sendMessage(conn, TMESS_NOTIFICATION, "Нет такого контакта в профиле!") //todo удалить
-			if greaterVersionThan(curClient, MIN_VERSION_FOR_STATIC_ALERT) {
-				sendMessage(conn, TMESS_STANDART_ALERT, fmt.Sprint(STATIC_MESSAGE_ABSENT_ERROR))
+			if greaterVersionThan(curClient, MinimalVersionForStaticAlert) {
+				sendMessage(conn, TMESS_STANDART_ALERT, fmt.Sprint(StaticMessageAbsentError))
 			}
 		}
 	} else {
-		LogAdd(MESS_ERROR, id+" ошибка преобразования идентификатора")
+		LogAdd(MessError, id+" ошибка преобразования идентификатора")
 		sendMessage(conn, TMESS_NOTIFICATION, "Ошибка преобразования идентификатора!") //todo удалить
-		if greaterVersionThan(curClient, MIN_VERSION_FOR_STATIC_ALERT) {
-			sendMessage(conn, TMESS_STANDART_ALERT, fmt.Sprint(STATIC_MESSAGE_ABSENT_ERROR))
+		if greaterVersionThan(curClient, MinimalVersionForStaticAlert) {
+			sendMessage(conn, TMESS_STANDART_ALERT, fmt.Sprint(StaticMessageAbsentError))
 		}
 	}
 }
 
 func processStatuses(message Message, conn *net.Conn, curClient *Client, id string) {
-	LogAdd(MESS_INFO, id+" пришел запрос на статусы профиля")
+	LogAdd(MessInfo, id+" пришел запрос на статусы профиля")
 	if len(message.Messages) != 0 {
-		LogAdd(MESS_ERROR, id+" не правильное кол-во полей")
+		LogAdd(MessError, id+" не правильное кол-во полей")
 		return
 	}
 
 	if curClient.Profile == nil {
-		LogAdd(MESS_ERROR, id+" не авторизован профиль")
+		LogAdd(MessError, id+" не авторизован профиль")
 		return
 	}
 
@@ -424,14 +424,14 @@ func processStatuses(message Message, conn *net.Conn, curClient *Client, id stri
 }
 
 func processStatus(message Message, conn *net.Conn, curClient *Client, id string) {
-	LogAdd(MESS_INFO, id+" пришел запрос на статус контакта")
+	LogAdd(MessInfo, id+" пришел запрос на статус контакта")
 	if len(message.Messages) != 1 {
-		LogAdd(MESS_ERROR, id+" не правильное кол-во полей")
+		LogAdd(MessError, id+" не правильное кол-во полей")
 		return
 	}
 
 	if curClient.Profile == nil {
-		LogAdd(MESS_ERROR, id+" не авторизован профиль")
+		LogAdd(MessError, id+" не авторизован профиль")
 		return
 	}
 
@@ -450,14 +450,14 @@ func processStatus(message Message, conn *net.Conn, curClient *Client, id string
 }
 
 func processInfoContact(message Message, conn *net.Conn, curClient *Client, id string) {
-	LogAdd(MESS_INFO, id+" пришел запрос на информацию о контакте")
+	LogAdd(MessInfo, id+" пришел запрос на информацию о контакте")
 	if len(message.Messages) != 1 {
-		LogAdd(MESS_ERROR, id+" не правильное кол-во полей")
+		LogAdd(MessError, id+" не правильное кол-во полей")
 		return
 	}
 
 	if curClient.Profile == nil {
-		LogAdd(MESS_ERROR, id+" не авторизован профиль")
+		LogAdd(MessError, id+" не авторизован профиль")
 		return
 	}
 
@@ -471,33 +471,33 @@ func processInfoContact(message Message, conn *net.Conn, curClient *Client, id s
 					sendMessage(peer.Conn, TMESS_INFO_CONTACT, curClient.Pid, p.Digest, p.Salt)
 				}
 			} else {
-				LogAdd(MESS_ERROR, id+" нет такого контакта в сети")
+				LogAdd(MessError, id+" нет такого контакта в сети")
 				sendMessage(conn, TMESS_NOTIFICATION, "Нет такого контакта в сети!") //todo удалить
-				if greaterVersionThan(curClient, MIN_VERSION_FOR_STATIC_ALERT) {
-					sendMessage(conn, TMESS_STANDART_ALERT, fmt.Sprint(STATIC_MESSAGE_ABSENT_ERROR))
+				if greaterVersionThan(curClient, MinimalVersionForStaticAlert) {
+					sendMessage(conn, TMESS_STANDART_ALERT, fmt.Sprint(StaticMessageAbsentError))
 				}
 			}
 		} else {
-			LogAdd(MESS_ERROR, id+" нет такого контакта в профиле")
+			LogAdd(MessError, id+" нет такого контакта в профиле")
 			sendMessage(conn, TMESS_NOTIFICATION, "Нет такого контакта в профиле!") //todo удалить
-			if greaterVersionThan(curClient, MIN_VERSION_FOR_STATIC_ALERT) {
-				sendMessage(conn, TMESS_STANDART_ALERT, fmt.Sprint(STATIC_MESSAGE_ABSENT_ERROR))
+			if greaterVersionThan(curClient, MinimalVersionForStaticAlert) {
+				sendMessage(conn, TMESS_STANDART_ALERT, fmt.Sprint(StaticMessageAbsentError))
 			}
 		}
 	} else {
-		LogAdd(MESS_ERROR, id+" ошибка преобразования идентификатора")
+		LogAdd(MessError, id+" ошибка преобразования идентификатора")
 		sendMessage(conn, TMESS_NOTIFICATION, "Ошибка преобразования идентификатора!") //todo удалить
-		if greaterVersionThan(curClient, MIN_VERSION_FOR_STATIC_ALERT) {
-			sendMessage(conn, TMESS_STANDART_ALERT, fmt.Sprint(STATIC_MESSAGE_ABSENT_ERROR))
+		if greaterVersionThan(curClient, MinimalVersionForStaticAlert) {
+			sendMessage(conn, TMESS_STANDART_ALERT, fmt.Sprint(StaticMessageAbsentError))
 		}
 	}
 
 }
 
 func processInfoAnswer(message Message, conn *net.Conn, curClient *Client, id string) {
-	LogAdd(MESS_INFO, id+" пришел ответ на информацию о контакте")
+	LogAdd(MessInfo, id+" пришел ответ на информацию о контакте")
 	if len(message.Messages) < 1 {
-		LogAdd(MESS_ERROR, id+" не правильное кол-во полей")
+		LogAdd(MessError, id+" не правильное кол-во полей")
 		return
 	}
 
@@ -506,31 +506,31 @@ func processInfoAnswer(message Message, conn *net.Conn, curClient *Client, id st
 		for _, peer := range list {
 			if peer.Profile != nil {
 				sendMessage(peer.Conn, TMESS_INFO_ANSWER, message.Messages...)
-				LogAdd(MESS_INFO, id+" вернули ответ")
+				LogAdd(MessInfo, id+" вернули ответ")
 			} else {
-				LogAdd(MESS_ERROR, id+" деавторизованный профиль")
+				LogAdd(MessError, id+" деавторизованный профиль")
 			}
 		}
 
 	} else {
-		LogAdd(MESS_ERROR, id+" нет такого контакта в сети")
+		LogAdd(MessError, id+" нет такого контакта в сети")
 		sendMessage(conn, TMESS_NOTIFICATION, "Нет такого контакта в сети!") //todo удалить
-		if greaterVersionThan(curClient, MIN_VERSION_FOR_STATIC_ALERT) {
-			sendMessage(conn, TMESS_STANDART_ALERT, fmt.Sprint(STATIC_MESSAGE_ABSENT_ERROR))
+		if greaterVersionThan(curClient, MinimalVersionForStaticAlert) {
+			sendMessage(conn, TMESS_STANDART_ALERT, fmt.Sprint(StaticMessageAbsentError))
 		}
 	}
 
 }
 
 func processManage(message Message, conn *net.Conn, curClient *Client, id string) {
-	LogAdd(MESS_INFO, id+" пришел запрос на управление")
+	LogAdd(MessInfo, id+" пришел запрос на управление")
 	if len(message.Messages) < 2 {
-		LogAdd(MESS_ERROR, id+" не правильное кол-во полей")
+		LogAdd(MessError, id+" не правильное кол-во полей")
 		return
 	}
 
 	if curClient.Profile == nil {
-		LogAdd(MESS_ERROR, id+" не авторизован профиль")
+		LogAdd(MessError, id+" не авторизован профиль")
 		return
 	}
 
@@ -548,33 +548,33 @@ func processManage(message Message, conn *net.Conn, curClient *Client, id string
 					sendMessage(peer.Conn, TMESS_MANAGE, content...)
 				}
 			} else {
-				LogAdd(MESS_ERROR, id+" нет такого контакта в сети")
+				LogAdd(MessError, id+" нет такого контакта в сети")
 				sendMessage(conn, TMESS_NOTIFICATION, "Нет такого контакта в сети!") //todo удалить
-				if greaterVersionThan(curClient, MIN_VERSION_FOR_STATIC_ALERT) {
-					sendMessage(conn, TMESS_STANDART_ALERT, fmt.Sprint(STATIC_MESSAGE_ABSENT_ERROR))
+				if greaterVersionThan(curClient, MinimalVersionForStaticAlert) {
+					sendMessage(conn, TMESS_STANDART_ALERT, fmt.Sprint(StaticMessageAbsentError))
 				}
 			}
 		} else {
-			LogAdd(MESS_ERROR, id+" нет такого контакта в профиле")
+			LogAdd(MessError, id+" нет такого контакта в профиле")
 			sendMessage(conn, TMESS_NOTIFICATION, "Нет такого контакта в профиле!") //todo удалить
-			if greaterVersionThan(curClient, MIN_VERSION_FOR_STATIC_ALERT) {
-				sendMessage(conn, TMESS_STANDART_ALERT, fmt.Sprint(STATIC_MESSAGE_ABSENT_ERROR))
+			if greaterVersionThan(curClient, MinimalVersionForStaticAlert) {
+				sendMessage(conn, TMESS_STANDART_ALERT, fmt.Sprint(StaticMessageAbsentError))
 			}
 		}
 	} else {
-		LogAdd(MESS_ERROR, id+" ошибка преобразования идентификатора")
+		LogAdd(MessError, id+" ошибка преобразования идентификатора")
 		sendMessage(conn, TMESS_NOTIFICATION, "Ошибка преобразования идентификатора!") //todo удалить
-		if greaterVersionThan(curClient, MIN_VERSION_FOR_STATIC_ALERT) {
-			sendMessage(conn, TMESS_STANDART_ALERT, fmt.Sprint(STATIC_MESSAGE_ABSENT_ERROR))
+		if greaterVersionThan(curClient, MinimalVersionForStaticAlert) {
+			sendMessage(conn, TMESS_STANDART_ALERT, fmt.Sprint(StaticMessageAbsentError))
 		}
 	}
 }
 
 func processContactReverse(message Message, conn *net.Conn, curClient *Client, id string) {
-	LogAdd(MESS_INFO, id+" пришел запрос на добавление в чужую учетку")
+	LogAdd(MessInfo, id+" пришел запрос на добавление в чужую учетку")
 
 	if len(message.Messages) < 3 {
-		LogAdd(MESS_ERROR, id+" не правильное кол-во полей")
+		LogAdd(MessError, id+" не правильное кол-во полей")
 		return
 	}
 
@@ -609,23 +609,23 @@ func processContactReverse(message Message, conn *net.Conn, curClient *Client, i
 				return true
 			})
 
-			LogAdd(MESS_INFO, id+" операция с контактом выполнена")
+			LogAdd(MessInfo, id+" операция с контактом выполнена")
 			return
 		}
 	}
 
-	LogAdd(MESS_ERROR, id+" не удалось добавить контакт в чужой профиль")
+	LogAdd(MessError, id+" не удалось добавить контакт в чужой профиль")
 }
 
 func processServers(message Message, conn *net.Conn, curClient *Client, id string) {
 	//убедимся что версия клиента поддерживает соединения через агента
-	if !greaterVersionThan(curClient, MIN_VERSION_FOR_NODES) {
+	if !greaterVersionThan(curClient, MinimalVersionForNodes) {
 		return
 	}
 
-	LogAdd(MESS_INFO, id+" пришел запрос на информацию об агентах")
+	LogAdd(MessInfo, id+" пришел запрос на информацию об агентах")
 
-	if Options.Mode != MASTER {
+	if Options.Mode != ModeMaster {
 		return
 	}
 

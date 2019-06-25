@@ -15,7 +15,7 @@ import (
 
 func recoverMainServer(conn *net.Conn) {
 	if recover() != nil {
-		LogAdd(MESS_ERROR, "поток mainServer поймал критическую ошибку")
+		LogAdd(MessError, "поток mainServer поймал критическую ошибку")
 		debug.PrintStack()
 
 		if conn != nil {
@@ -26,7 +26,7 @@ func recoverMainServer(conn *net.Conn) {
 
 func recoverDataServer(conn *net.Conn) {
 	if recover() != nil {
-		LogAdd(MESS_ERROR, "поток dataServer поймал критическую ошибку")
+		LogAdd(MessError, "поток dataServer поймал критическую ошибку")
 		debug.PrintStack()
 
 		if conn != nil {
@@ -36,18 +36,18 @@ func recoverDataServer(conn *net.Conn) {
 }
 
 func MainServer() {
-	LogAdd(MESS_INFO, "mainServer запустился")
+	LogAdd(MessInfo, "mainServer запустился")
 
 	ln, err := net.Listen("tcp", ":"+Options.MainServerPort)
 	if err != nil {
-		LogAdd(MESS_ERROR, "mainServer не смог занять порт")
+		LogAdd(MessError, "mainServer не смог занять порт")
 		os.Exit(1)
 	}
 
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
-			LogAdd(MESS_ERROR, "mainServer не смог занять сокет")
+			LogAdd(MessError, "mainServer не смог занять сокет")
 			break
 		}
 
@@ -56,12 +56,12 @@ func MainServer() {
 	}
 
 	ln.Close()
-	LogAdd(MESS_INFO, "mainServer остановился")
+	LogAdd(MessInfo, "mainServer остановился")
 }
 
 func mainHandler(conn *net.Conn) {
-	id := RandomString(MAX_LEN_ID_LOG)
-	LogAdd(MESS_INFO, id+" mainServer получил соединение "+fmt.Sprint((*conn).RemoteAddr()))
+	id := RandomString(MaxLengthIDLog)
+	LogAdd(MessInfo, id+" mainServer получил соединение "+fmt.Sprint((*conn).RemoteAddr()))
 
 	defer recoverMainServer(conn)
 
@@ -72,15 +72,15 @@ func mainHandler(conn *net.Conn) {
 		buff, err := reader.ReadBytes('}')
 
 		if err != nil {
-			LogAdd(MESS_ERROR, id+" ошибка чтения буфера")
+			LogAdd(MessError, id+" ошибка чтения буфера")
 			break
 		}
 
-		LogAdd(MESS_DETAIL, id+fmt.Sprint(" buff ("+strconv.Itoa(len(buff))+"): "+string(buff)))
+		LogAdd(MessDetail, id+fmt.Sprint(" buff ("+strconv.Itoa(len(buff))+"): "+string(buff)))
 
 		//удаляем мусор
 		if buff[0] != '{' {
-			LogAdd(MESS_INFO, id+" mainServer удаляем мусор")
+			LogAdd(MessInfo, id+" mainServer удаляем мусор")
 			if bytes.Index(buff, []byte("{")) >= 0 {
 				buff = buff[bytes.Index(buff, []byte("{")):]
 			} else {
@@ -91,24 +91,24 @@ func mainHandler(conn *net.Conn) {
 		var message Message
 		err = json.Unmarshal(buff, &message)
 		if err != nil {
-			LogAdd(MESS_ERROR, id+" ошибка разбора json")
-			time.Sleep(time.Millisecond * WAIT_IDLE)
+			LogAdd(MessError, id+" ошибка разбора json")
+			time.Sleep(time.Millisecond * WaitIdle)
 			continue
 		}
 
-		LogAdd(MESS_DETAIL, id+" "+fmt.Sprint(message))
+		LogAdd(MessDetail, id+" "+fmt.Sprint(message))
 
 		//обрабатываем полученное сообщение
 		if len(Processing) > message.TMessage {
 			if Processing[message.TMessage].Processing != nil {
 				Processing[message.TMessage].Processing(message, conn, &curClient, id)
 			} else {
-				LogAdd(MESS_INFO, id+" нет обработчика для сообщения "+fmt.Sprint(message.TMessage))
-				time.Sleep(time.Millisecond * WAIT_IDLE)
+				LogAdd(MessInfo, id+" нет обработчика для сообщения "+fmt.Sprint(message.TMessage))
+				time.Sleep(time.Millisecond * WaitIdle)
 			}
 		} else {
-			LogAdd(MESS_INFO, id+" неизвестное сообщение: "+fmt.Sprint(message.TMessage))
-			time.Sleep(time.Millisecond * WAIT_IDLE)
+			LogAdd(MessInfo, id+" неизвестное сообщение: "+fmt.Sprint(message.TMessage))
+			time.Sleep(time.Millisecond * WaitIdle)
 		}
 
 	}
@@ -136,22 +136,22 @@ func mainHandler(conn *net.Conn) {
 	//удалим себя из карты клиентов
 	curClient.removeClient()
 
-	LogAdd(MESS_INFO, id+" mainServer потерял соединение с пиром "+fmt.Sprint((*conn).RemoteAddr()))
+	LogAdd(MessInfo, id+" mainServer потерял соединение с пиром "+fmt.Sprint((*conn).RemoteAddr()))
 }
 
 func DataServer() {
-	LogAdd(MESS_INFO, "dataServer запустился")
+	LogAdd(MessInfo, "dataServer запустился")
 
 	ln, err := net.Listen("tcp", ":"+Options.DataServerPort)
 	if err != nil {
-		LogAdd(MESS_ERROR, "dataServer не смог занять порт")
+		LogAdd(MessError, "dataServer не смог занять порт")
 		os.Exit(1)
 	}
 
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
-			LogAdd(MESS_ERROR, "dataServer не смог занять сокет")
+			LogAdd(MessError, "dataServer не смог занять сокет")
 			break
 		}
 
@@ -159,12 +159,12 @@ func DataServer() {
 	}
 
 	ln.Close()
-	LogAdd(MESS_INFO, "dataServer остановился")
+	LogAdd(MessInfo, "dataServer остановился")
 }
 
 func dataHandler(conn *net.Conn) {
 	id := RandomString(6)
-	LogAdd(MESS_INFO, id+" dataHandler получил соединение "+fmt.Sprint((*conn).RemoteAddr()))
+	LogAdd(MessInfo, id+" dataHandler получил соединение "+fmt.Sprint((*conn).RemoteAddr()))
 
 	defer recoverDataServer(conn)
 
@@ -172,14 +172,14 @@ func dataHandler(conn *net.Conn) {
 		code, err := bufio.NewReader(*conn).ReadString('\n')
 
 		if err != nil {
-			LogAdd(MESS_ERROR, id+" ошибка чтения кода")
+			LogAdd(MessError, id+" ошибка чтения кода")
 			break
 		}
 
 		code = code[:len(code)-1]
 		value, exist := channels.Load(code)
 		if exist == false {
-			LogAdd(MESS_ERROR, id+" не ожидаем такого кода")
+			LogAdd(MessError, id+" не ожидаем такого кода")
 			break
 		}
 
@@ -190,12 +190,12 @@ func dataHandler(conn *net.Conn) {
 			peers.pointer[0] = conn
 			numPeer = 1
 
-			if Options.Mode == REGULAR {
+			if Options.Mode == ModeRegular {
 				//отправим запрос принимающей стороне
 				if !sendMessage(peers.client.Conn, TMESS_CONNECT, "", "", code, "simple", "client", peers.server.Pid, peers.address) {
-					LogAdd(MESS_ERROR, id+" не смогли отправить запрос принимающей стороне")
+					LogAdd(MessError, id+" не смогли отправить запрос принимающей стороне")
 				}
-			} else { //options.mode == NODE
+			} else { //options.mode == ModeNode
 				sendMessageToMaster(TMESS_AGENT_NEW_CONN, code) //оповестим мастер о том что мы дождались транслятор
 			}
 
@@ -206,20 +206,20 @@ func dataHandler(conn *net.Conn) {
 		peers.mutex.Unlock()
 
 		var cWait = 0
-		for peers.pointer[numPeer] == nil && cWait < WAIT_COUNT {
-			LogAdd(MESS_INFO, id+" ожидаем пира для "+code)
-			time.Sleep(time.Millisecond * WAIT_IDLE)
+		for peers.pointer[numPeer] == nil && cWait < WaitCount {
+			LogAdd(MessInfo, id+" ожидаем пира для "+code)
+			time.Sleep(time.Millisecond * WaitIdle)
 			cWait++
 		}
 
 		if peers.pointer[numPeer] == nil {
-			LogAdd(MESS_ERROR, id+" превышено время ожидания")
+			LogAdd(MessError, id+" превышено время ожидания")
 			disconnectPeers(code)
 			break
 		}
 
-		LogAdd(MESS_INFO, id+" пир существует для "+code)
-		time.Sleep(time.Millisecond * WAIT_AFTER_CONNECT)
+		LogAdd(MessInfo, id+" пир существует для "+code)
+		time.Sleep(time.Millisecond * WaitAfterConnect)
 
 		var z []byte
 		z = make([]byte, Options.SizeBuff)
@@ -232,8 +232,8 @@ func dataHandler(conn *net.Conn) {
 			n1, err1 = (*conn).Read(z)
 
 			if peers.pointer[numPeer] == nil {
-				LogAdd(MESS_INFO, id+" потеряли пир")
-				time.Sleep(time.Millisecond * WAIT_AFTER_CONNECT)
+				LogAdd(MessInfo, id+" потеряли пир")
+				time.Sleep(time.Millisecond * WaitAfterConnect)
 				break
 			}
 
@@ -242,10 +242,10 @@ func dataHandler(conn *net.Conn) {
 			countBytes = countBytes + uint64(n1+n2)
 
 			if err1 != nil || err2 != nil || n1 == 0 || n2 == 0 {
-				LogAdd(MESS_INFO, id+" соединение закрылось: "+fmt.Sprint(n1, n2))
-				LogAdd(MESS_INFO, id+" err1: "+fmt.Sprint(err1))
-				LogAdd(MESS_INFO, id+" err2: "+fmt.Sprint(err2))
-				time.Sleep(time.Millisecond * WAIT_AFTER_CONNECT)
+				LogAdd(MessInfo, id+" соединение закрылось: "+fmt.Sprint(n1, n2))
+				LogAdd(MessInfo, id+" err1: "+fmt.Sprint(err1))
+				LogAdd(MessInfo, id+" err2: "+fmt.Sprint(err2))
+				time.Sleep(time.Millisecond * WaitAfterConnect)
 				if peers.pointer[numPeer] != nil {
 					(*peers.pointer[numPeer]).Close()
 				}
@@ -254,16 +254,16 @@ func dataHandler(conn *net.Conn) {
 		}
 
 		AddCounter(countBytes)
-		if Options.Mode == NODE {
+		if Options.Mode == ModeNode {
 			sendMessageToMaster(TMESS_AGENT_ADD_BYTES, fmt.Sprint(countBytes))
 		}
 
-		LogAdd(MESS_INFO, id+" поток завершается")
+		LogAdd(MessInfo, id+" поток завершается")
 		disconnectPeers(code)
 		break
 	}
 	(*conn).Close()
-	LogAdd(MESS_INFO, id+" dataHandler потерял соединение")
+	LogAdd(MessInfo, id+" dataHandler потерял соединение")
 
 }
 
@@ -273,7 +273,7 @@ func disconnectPeers(code string) {
 		channels.Delete(code)
 		pair := value.(*dConn)
 
-		if Options.Mode != MASTER {
+		if Options.Mode != ModeMaster {
 			if pair.pointer[0] != nil {
 				(*pair.pointer[0]).Close()
 			}
@@ -281,10 +281,10 @@ func disconnectPeers(code string) {
 				(*pair.pointer[1]).Close()
 			}
 		}
-		if Options.Mode == MASTER {
+		if Options.Mode == ModeMaster {
 			sendMessageToNodes(TMESS_AGENT_DEL_CODE, code)
 		}
-		if Options.Mode == NODE {
+		if Options.Mode == ModeNode {
 			sendMessageToMaster(TMESS_AGENT_DEL_CODE, code)
 		}
 
@@ -302,27 +302,27 @@ func connectPeers(code string, client *Client, server *Client, address string) {
 
 	go checkConnection(&newConnection, code) //может случиться так, что код сохранили, а никто не подключился
 
-	if Options.Mode == MASTER {
+	if Options.Mode == ModeMaster {
 		sendMessageToNodes(TMESS_AGENT_ADD_CODE, code)
 	}
 }
 
 func checkConnection(connection *dConn, code string) {
-	time.Sleep(time.Second * WAIT_CONNECTION)
+	time.Sleep(time.Second * WaitConnection)
 
-	if Options.Mode != NODE {
+	if Options.Mode != ModeNode {
 		if connection.node == nil && connection.pointer[0] == nil && connection.pointer[1] == nil {
-			LogAdd(MESS_ERROR, "таймаут ожидания соединений для "+code)
+			LogAdd(MessError, "таймаут ожидания соединений для "+code)
 			if connection.client != nil {
-				if greaterVersionThan(connection.client, MIN_VERSION_FOR_STATIC_ALERT) {
-					sendMessage(connection.client.Conn, TMESS_STANDART_ALERT, fmt.Sprint(STATIC_MESSAGE_TIMEOUT_ERROR))
+				if greaterVersionThan(connection.client, MinimalVersionForStaticAlert) {
+					sendMessage(connection.client.Conn, TMESS_STANDART_ALERT, fmt.Sprint(StaticMessageTimeoutError))
 				}
 			}
 			disconnectPeers(code)
 		}
 	} else {
 		if (connection.pointer[0] != nil && connection.pointer[1] == nil) || (connection.pointer[0] == nil && connection.pointer[1] != nil) {
-			LogAdd(MESS_ERROR, "таймаут ожидания соединений для "+code)
+			LogAdd(MessError, "таймаут ожидания соединений для "+code)
 			disconnectPeers(code)
 		}
 	}

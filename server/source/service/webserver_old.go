@@ -127,7 +127,7 @@ func handleResources(w http.ResponseWriter, r *http.Request) {
 	connectionsString := ""
 
 	var buf1 string
-	if Options.Mode == MASTER {
+	if Options.Mode == ModeMaster {
 		connectionsString = connectionsString + fmt.Sprint("\n\n<a href='#'>агенты</a><br><pre>\n")
 		nodes.Range(func(key interface{}, value interface{}) bool {
 			agent := value.(*Node)
@@ -360,26 +360,26 @@ func handleAPI(w http.ResponseWriter, r *http.Request) {
 			if m.Processing != nil {
 				m.Processing(w, r)
 			} else {
-				LogAdd(MESS_INFO, "WEB Нет обработчика для сообщения")
-				time.Sleep(time.Millisecond * WAIT_IDLE)
+				LogAdd(MessInfo, "WEB Нет обработчика для сообщения")
+				time.Sleep(time.Millisecond * WaitIdle)
 			}
 			return
 		}
 	}
 
-	time.Sleep(time.Millisecond * WAIT_IDLE)
-	LogAdd(MESS_ERROR, "WEB Неизвестное сообщение")
+	time.Sleep(time.Millisecond * WaitIdle)
+	LogAdd(MessError, "WEB Неизвестное сообщение")
 	http.Error(w, "bad request", http.StatusBadRequest)
 }
 
 //раскрытие api
 func processApiDefaultVnc(w http.ResponseWriter, r *http.Request) {
-	LogAdd(MESS_INFO, "WEB Запрос vnc версии по-умолчанию")
+	LogAdd(MessInfo, "WEB Запрос vnc версии по-умолчанию")
 
 	if len(arrayVnc) < defaultVnc {
 		buff, err := json.Marshal(arrayVnc[defaultVnc])
 		if err != nil {
-			LogAdd(MESS_ERROR, "WEB Не получилось отправить версию VNC")
+			LogAdd(MessError, "WEB Не получилось отправить версию VNC")
 			return
 		}
 		w.Write(buff)
@@ -389,11 +389,11 @@ func processApiDefaultVnc(w http.ResponseWriter, r *http.Request) {
 }
 
 func processApiListVnc(w http.ResponseWriter, r *http.Request) {
-	LogAdd(MESS_INFO, "WEB Запрос списка vnc")
+	LogAdd(MessInfo, "WEB Запрос списка vnc")
 
 	buff, err := json.Marshal(arrayVnc)
 	if err != nil {
-		LogAdd(MESS_ERROR, "WEB Не получилось отправить список VNC")
+		LogAdd(MessError, "WEB Не получилось отправить список VNC")
 		return
 	}
 	w.Write(buff)
@@ -404,8 +404,8 @@ func processApiGetLog(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	LogAdd(MESS_INFO, "WEB Запрос log")
-	file, _ := os.Open(LOG_NAME)
+	LogAdd(MessInfo, "WEB Запрос log")
+	file, _ := os.Open(LogFilename)
 	log, err := ioutil.ReadAll(file)
 	if err == nil {
 		file.Close()
@@ -418,7 +418,7 @@ func processApiClearLog(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	LogAdd(MESS_INFO, "WEB Запрос очистки log")
+	LogAdd(MessInfo, "WEB Запрос очистки log")
 	ClearLog()
 	http.Redirect(w, r, "/admin/logs", http.StatusTemporaryRedirect)
 }
@@ -429,7 +429,7 @@ func processApiProfileSave(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	LogAdd(MESS_INFO, "WEB Запрос сохранения профиля "+curProfile.Email)
+	LogAdd(MessInfo, "WEB Запрос сохранения профиля "+curProfile.Email)
 
 	pass1 := string(r.FormValue("abc"))
 	pass2 := string(r.FormValue("def"))
@@ -454,7 +454,7 @@ func processApiProfileGet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	LogAdd(MESS_INFO, "WEB Запрос информации профиля "+curProfile.Email)
+	LogAdd(MessInfo, "WEB Запрос информации профиля "+curProfile.Email)
 
 	newProfile := *curProfile
 	newProfile.Pass = "*****"
@@ -472,7 +472,7 @@ func processApiSaveOptions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	LogAdd(MESS_INFO, "WEB Запрос сохранения опций")
+	LogAdd(MessInfo, "WEB Запрос сохранения опций")
 
 	SaveOptions()
 
@@ -484,7 +484,7 @@ func processApiReload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	LogAdd(MESS_INFO, "WEB Запрос на перезапуск сервера")
+	LogAdd(MessInfo, "WEB Запрос на перезапуск сервера")
 
 	//todo перезапуск
 	w.WriteHeader(http.StatusOK)
@@ -495,20 +495,20 @@ func processApiReopen(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	LogAdd(MESS_INFO, "WEB Запрос на чтение списка VNC")
+	LogAdd(MessInfo, "WEB Запрос на чтение списка VNC")
 
 	LoadVNCList()
 	w.WriteHeader(http.StatusOK)
 }
 
 func processApiVersion(w http.ResponseWriter, r *http.Request) {
-	LogAdd(MESS_INFO, "WEB Запрос актуальной версии")
+	LogAdd(MessInfo, "WEB Запрос актуальной версии")
 
 	var resp [2]string
 	resp[0] = Options.Version
 	fs, err := os.Stat("resource/reVisit.exe")
 	if err != nil {
-		LogAdd(MESS_ERROR, "WEB Отсутствует клиент")
+		LogAdd(MessError, "WEB Отсутствует клиент")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -531,7 +531,7 @@ func processApiOptionsGet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	LogAdd(MESS_INFO, "WEB Запрос опций")
+	LogAdd(MessInfo, "WEB Запрос опций")
 
 	b, err := json.Marshal(Options)
 	if err == nil {
@@ -547,7 +547,7 @@ func processApiOptionsSave(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	LogAdd(MESS_INFO, "WEB Запрос сохранения опций")
+	LogAdd(MessInfo, "WEB Запрос сохранения опций")
 
 	portsmtp := string(r.FormValue("portsmtp"))
 	loginsmtp := string(r.FormValue("loginsmtp"))
@@ -589,13 +589,13 @@ func checkProfileAuth(w http.ResponseWriter, r *http.Request) *Profile {
 
 		if exist {
 			if value.(*Profile).Pass == pass {
-				//LogAdd(MESS_INFO, "WWW Аутентификация успешна " + user + "/"+ r.RemoteAddr)
+				//LogAdd(MessInfo, "WWW Аутентификация успешна " + user + "/"+ r.RemoteAddr)
 				return value.(*Profile)
 			}
 		}
 	}
 
-	LogAdd(MESS_ERROR, "WWW Аутентификация профиля провалилась "+r.RemoteAddr)
+	LogAdd(MessError, "WWW Аутентификация профиля провалилась "+r.RemoteAddr)
 	w.Header().Set("WWW-Authenticate", "Basic")
 	http.Error(w, "auth req", http.StatusUnauthorized)
 	return nil
@@ -610,7 +610,7 @@ func checkAdminAuth(w http.ResponseWriter, r *http.Request) bool {
 		}
 	}
 
-	LogAdd(MESS_ERROR, "WWW Аутентификация админки провалилась "+r.RemoteAddr)
+	LogAdd(MessError, "WWW Аутентификация админки провалилась "+r.RemoteAddr)
 	w.Header().Set("WWW-Authenticate", "Basic")
 	http.Error(w, "auth req", http.StatusUnauthorized)
 	return false
@@ -661,14 +661,14 @@ func addClientsStatisticsAdmin() string {
 func addAgentsAdmin() string {
 	var webClientsStatistic []WebClientStatistic
 
-	if Options.Mode == REGULAR {
+	if Options.Mode == ModeRegular {
 		var webClientStatistic WebClientStatistic
 
 		webClientStatistic.Latitude = coordinates[0]
 		webClientStatistic.Longitude = coordinates[1]
 
 		webClientStatistic.Ip = myIp
-		webClientStatistic.Note = "MASTER"
+		webClientStatistic.Note = "ModeMaster"
 
 		webClientsStatistic = append(webClientsStatistic, webClientStatistic)
 	} else {
