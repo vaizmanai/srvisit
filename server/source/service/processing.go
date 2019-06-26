@@ -3,6 +3,7 @@ package service
 import (
 	. "../common"
 	. "../component/contact"
+	. "../component/profile"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -186,7 +187,7 @@ func processLogin(message Message, conn *net.Conn, curClient *Client, id string)
 			sendMessage(conn, TMESS_LOGIN)
 
 			curClient.Profile = profile.(*Profile)
-			profile.(*Profile).clients.Store(CleanPid(curClient.Pid), curClient)
+			profile.(*Profile).GetClients().Store(CleanPid(curClient.Pid), curClient)
 			processContacts(message, conn, curClient, id)
 			return
 		}
@@ -266,8 +267,8 @@ func processContact(message Message, conn *net.Conn, curClient *Client, id strin
 
 	i, err := strconv.Atoi(message.Messages[0])
 	if err == nil {
-		profile.mutex.Lock()
-		defer profile.mutex.Unlock()
+		profile.Lock()
+		defer profile.Unlock()
 
 		if i == -1 {
 			i = GetNewId(profile.Contacts)
@@ -326,7 +327,7 @@ func processContact(message Message, conn *net.Conn, curClient *Client, id strin
 		}
 
 		//отправим всем авторизованным об изменениях
-		profile.clients.Range(func(key interface{}, value interface{}) bool {
+		profile.GetClients().Range(func(key interface{}, value interface{}) bool {
 			sendMessage(value.(*Client).Conn, message.TMessage, message.Messages...)
 			return true
 		})
@@ -367,7 +368,7 @@ func processLogout(message Message, conn *net.Conn, curClient *Client, id string
 		return
 	}
 
-	curClient.Profile.clients.Delete(CleanPid(curClient.Pid))
+	curClient.Profile.GetClients().Delete(CleanPid(curClient.Pid))
 	curClient.Profile = nil
 }
 
@@ -604,7 +605,7 @@ func processContactReverse(message Message, conn *net.Conn, curClient *Client, i
 			curClient.profiles.Store(curProfile.Email, curProfile)
 
 			//отправим всем авторизованным об изменениях
-			curProfile.clients.Range(func(key interface{}, value interface{}) bool {
+			curProfile.GetClients().Range(func(key interface{}, value interface{}) bool {
 				sendMessage(value.(*Client).Conn, TMESS_CONTACT, fmt.Sprint(i), "node", c.Caption, c.Pid, "", "-1")
 				sendMessage(value.(*Client).Conn, TMESS_STATUS, fmt.Sprint(i), "1")
 				return true

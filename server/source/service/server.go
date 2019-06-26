@@ -2,6 +2,7 @@ package service
 
 import (
 	. "../common"
+	. "../component/profile"
 	"bufio"
 	"bytes"
 	"encoding/json"
@@ -116,7 +117,7 @@ func mainHandler(conn *net.Conn) {
 
 	//удалим себя из профиля если авторизованы
 	if curClient.Profile != nil {
-		curClient.Profile.clients.Delete(CleanPid(curClient.Pid))
+		curClient.Profile.GetClients().Delete(CleanPid(curClient.Pid))
 	}
 
 	//пробежимся по профилям где мы есть и отправим новый статус
@@ -124,7 +125,7 @@ func mainHandler(conn *net.Conn) {
 		profile := value.(*Profile)
 
 		//все кто авторизовался в этот профиль должен получить новый статус
-		profile.clients.Range(func(key interface{}, value interface{}) bool {
+		profile.GetClients().Range(func(key interface{}, value interface{}) bool {
 			client := value.(*Client)
 			sendMessage(client.Conn, TMESS_STATUS, CleanPid(curClient.Pid), "0")
 			return true

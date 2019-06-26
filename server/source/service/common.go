@@ -3,6 +3,7 @@ package service
 import (
 	. "../common"
 	. "../component/contact"
+	. "../component/profile"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -138,22 +139,6 @@ type Client struct {
 
 	coordinates [2]float64
 	profiles    sync.Map //профили которые содержат этого клиента в контактах(используем для отправки им информации о своем статусе)
-}
-
-//тип для профиля
-type Profile struct {
-	Email string
-	Pass  string
-
-	Contacts *Contact
-	mutex    sync.Mutex
-
-	clients sync.Map //клиенты которые авторизовались в этот профиль(используем для отправки им информации о статусе или изменений контактов)
-
-	//всякая информация
-	Capt string
-	Tel  string
-	Logo string
 }
 
 //информацияя о ноде
@@ -325,7 +310,7 @@ func addClientToProfile(client *Client) {
 		profile := value.(*Profile)
 		if addClientToContacts(profile.Contacts, client, profile) {
 			//если мы есть хоть в одном конакте этого профиля, пробежимся по ним и отправим свой статус
-			profile.clients.Range(func(key interface{}, value interface{}) bool {
+			profile.GetClients().Range(func(key interface{}, value interface{}) bool {
 				curClient := value.(*Client)
 				sendMessage(curClient.Conn, TMESS_STATUS, CleanPid(client.Pid), "1")
 				return true

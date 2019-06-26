@@ -3,6 +3,7 @@ package service
 import (
 	. "../common"
 	. "../component/contact"
+	. "../component/profile"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -235,7 +236,7 @@ func handleResources(w http.ResponseWriter, r *http.Request) {
 
 		connectionsString = connectionsString + fmt.Sprintln(key.(string)) //(*value.(*Profile)).Pass)
 
-		value.(*Profile).clients.Range(func(key interface{}, value interface{}) bool {
+		value.(*Profile).GetClients().Range(func(key interface{}, value interface{}) bool {
 			connectionsString = connectionsString + fmt.Sprintln("\t", "<- "+key.(string))
 			return true
 		})
