@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-const countItem = 500
+const countItem = 5000
 
 func TestGetStatic(t *testing.T) {
 	t.Parallel()

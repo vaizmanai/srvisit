@@ -34,12 +34,12 @@ type Profile struct {
 }
 
 //todo избавиться
-func GetProfiles() (*sync.Map) {
+func GetProfiles() *sync.Map {
 	return &profiles
 }
 
 //todo избавиться
-func (profile *Profile) GetClients() (*sync.Map) {
+func (profile *Profile) GetClients() *sync.Map {
 	return &(*profile).clients
 }
 
@@ -80,7 +80,7 @@ func DelProfile(email string) {
 	profiles.Delete(email)
 }
 
-func GetProfileList() []Profile{
+func GetProfileList() []Profile {
 	list := make([]Profile, 0)
 	profiles.Range(func(key interface{}, value interface{}) bool {
 		list = append(list, *value.(*Profile))
@@ -90,56 +90,75 @@ func GetProfileList() []Profile{
 }
 
 func SaveProfiles() {
-	var list []*Profile
-
-	profiles.Range(func(key interface{}, value interface{}) bool {
-		profile := value.(*Profile)
-		list = append(list, profile)
-		return true
-	})
+	list := GetProfileList()
 
 	b, err := json.Marshal(list)
-	if err == nil {
-		f, err := os.Create(common.ProfilesFilename + ".tmp")
-		if err == nil {
-			n, err := f.Write(b)
-			if n == len(b) && err == nil {
-				f.Close()
+	if err != nil {
+		common.LogAdd(common.MessError, "Не удалось сохранить профили: "+fmt.Sprint(err))
+		return
+	}
 
-				os.Remove(common.ProfilesFilename)
-				os.Rename(common.ProfilesFilename+".tmp", common.ProfilesFilename)
-			} else {
-				f.Close()
-				common.LogAdd(common.MessError, "Не удалось сохранить профили: "+fmt.Sprint(err))
-			}
-		} else {
-			common.LogAdd(common.MessError, "Не удалось сохранить профили: "+fmt.Sprint(err))
+	f, err := os.Create(common.ProfilesFilename + ".tmp")
+	if err != nil {
+		common.LogAdd(common.MessError, "Не удалось сохранить профили: "+fmt.Sprint(err))
+		return
+	}
+
+	n, err := f.Write(b)
+	if n == len(b) && err == nil {
+		err = f.Close()
+		if err != nil {
+			common.LogAdd(common.MessError, "Ошибка при сохранении профилей: "+fmt.Sprint(err))
+		}
+
+		err = os.Remove(common.ProfilesFilename)
+		if err != nil {
+			common.LogAdd(common.MessError, "Ошибка при сохранении профилей: "+fmt.Sprint(err))
+		}
+
+		err = os.Rename(common.ProfilesFilename+".tmp", common.ProfilesFilename)
+		if err != nil {
+			common.LogAdd(common.MessError, "Ошибка при сохранении профилей: "+fmt.Sprint(err))
 		}
 	} else {
 		common.LogAdd(common.MessError, "Не удалось сохранить профили: "+fmt.Sprint(err))
+
+		err = f.Close()
+		if err != nil {
+			common.LogAdd(common.MessError, "Ошибка при сохранении профилей: "+fmt.Sprint(err))
+		}
 	}
 }
 
 func LoadProfiles() {
 	var list []Profile
+	profiles = sync.Map{}
 
 	f, err := os.Open(common.ProfilesFilename)
-	defer f.Close()
-	if err == nil {
-		b, err := ioutil.ReadAll(f)
-		if err == nil {
-			err = json.Unmarshal(b, &list)
-			if err == nil {
-				for i := 0; i < len(list); i++ {
-					profiles.Store(list[i].Email, &list[i])
-				}
-			} else {
-				common.LogAdd(common.MessError, "Не получилось загрузить профили: "+fmt.Sprint(err))
-			}
-		} else {
-			common.LogAdd(common.MessError, "Не получилось загрузить профили: "+fmt.Sprint(err))
+	if err != nil {
+		common.LogAdd(common.MessError, "Не получилось загрузить профилей: "+fmt.Sprint(err))
+		return
+	}
+	defer func() {
+		err = f.Close()
+		if err != nil {
+			common.LogAdd(common.MessError, "Ошибка при загрузки профилей: "+fmt.Sprint(err))
 		}
-	} else {
+	}()
+
+	b, err := ioutil.ReadAll(f)
+	if err != nil {
 		common.LogAdd(common.MessError, "Не получилось загрузить профили: "+fmt.Sprint(err))
+		return
+	}
+
+	err = json.Unmarshal(b, &list)
+	if err != nil {
+		common.LogAdd(common.MessError, "Не получилось загрузить профили: "+fmt.Sprint(err))
+		return
+	}
+
+	for i := 0; i < len(list); i++ {
+		profiles.Store(list[i].Email, &list[i])
 	}
 }
