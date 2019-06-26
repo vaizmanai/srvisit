@@ -1,6 +1,6 @@
 package contact
 
-import . "../../common"
+import "../../common"
 
 //тип для контакта
 type Contact struct {
@@ -64,7 +64,7 @@ func GetContact(first *Contact, id int) *Contact {
 func GetContactByPid(first *Contact, pid string) *Contact {
 
 	for first != nil {
-		if CleanPid(first.Pid) == pid {
+		if common.CleanPid(first.Pid) == pid {
 			return first
 		}
 
