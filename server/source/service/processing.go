@@ -180,14 +180,14 @@ func processLogin(message Message, conn *net.Conn, curClient *Client, id string)
 	}
 
 	email := strings.ToLower(message.Messages[0])
-	profile, ok := profiles.Load(email)
-	if ok == true {
-		if message.Messages[1] == GetSHA256(profile.(*Profile).Pass+curClient.Salt) {
+	profile := GetProfile(email)
+	if profile != nil {
+		if message.Messages[1] == GetSHA256(profile.Pass+curClient.Salt) {
 			LogAdd(MessInfo, id+" авторизация профиля пройдена")
 			sendMessage(conn, TMESS_LOGIN)
 
-			curClient.Profile = profile.(*Profile)
-			profile.(*Profile).GetClients().Store(CleanPid(curClient.Pid), curClient)
+			curClient.Profile = profile
+			profile.GetClients().Store(CleanPid(curClient.Pid), curClient)
 			processContacts(message, conn, curClient, id)
 			return
 		}
@@ -210,15 +210,13 @@ func processReg(message Message, conn *net.Conn, curClient *Client, id string) {
 	}
 
 	//проверяем доступность учетки
-	_, ok := profiles.Load(message.Messages[0])
-	if ok == false {
-		newProfile := Profile{}
-		newProfile.Email = strings.ToLower(message.Messages[0])
+	profile := GetProfile(message.Messages[0])
+	if profile == nil {
+		newProfile := NewProfile(strings.ToLower(message.Messages[0]))
+
 		if len(Options.ServerSMTP) > 0 {
 			newProfile.Pass = RandomString(PasswordLength)
-
 			msg := "Subject: Information from reVisit\r\n\r\nYour password is " + newProfile.Pass + "\r\n"
-
 			success, err := SendEmail(message.Messages[0], msg)
 			if !success {
 				LogAdd(MessError, id+" не удалось отправить письмо с паролем: "+fmt.Sprint(err))
@@ -226,19 +224,17 @@ func processReg(message Message, conn *net.Conn, curClient *Client, id string) {
 				if greaterVersionThan(curClient, MinimalVersionForStaticAlert) {
 					sendMessage(conn, TMESS_STANDART_ALERT, fmt.Sprint(StaticMessageRegMail))
 				}
-				return
 			}
-
-			profiles.Store(newProfile.Email, &newProfile)
-			sendMessage(conn, TMESS_REG, "success")
-			sendMessage(conn, TMESS_NOTIFICATION, "Учетная запись создана, Ваш пароль на почте!") //todo удалить
-			if greaterVersionThan(curClient, MinimalVersionForStaticAlert) {
-				sendMessage(conn, TMESS_STANDART_ALERT, fmt.Sprint(StaticMessageRegSuccessful))
-			}
-			LogAdd(MessInfo, id+" создали учетку")
 		} else {
 			newProfile.Pass = PredefinedPass
 		}
+
+		sendMessage(conn, TMESS_REG, "success")
+		sendMessage(conn, TMESS_NOTIFICATION, "Учетная запись создана, Ваш пароль на почте!") //todo удалить
+		if greaterVersionThan(curClient, MinimalVersionForStaticAlert) {
+			sendMessage(conn, TMESS_STANDART_ALERT, fmt.Sprint(StaticMessageRegSuccessful))
+		}
+		LogAdd(MessInfo, id+" создали учетку")
 
 	} else {
 		//todo восстановление пароля
@@ -584,9 +580,8 @@ func processContactReverse(message Message, conn *net.Conn, curClient *Client, i
 	//Message[1] - digest
 	//Message[2] - caption
 
-	value, exist := profiles.Load(message.Messages[0])
-	if exist {
-		curProfile := value.(*Profile)
+	curProfile := GetProfile(message.Messages[0])
+	if curProfile != nil {
 		if GetSHA256(curProfile.Pass+curClient.Salt) == message.Messages[1] {
 			i := GetNewId(curProfile.Contacts)
 

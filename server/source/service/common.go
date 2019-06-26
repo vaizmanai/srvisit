@@ -47,8 +47,6 @@ const (
 	TMESS_AGENT_NEW_CONN  = 5
 
 	TMESS_AGENT_PING = 18
-
-	FILE_PROFILES = "profiles.list"
 )
 
 var (
@@ -91,9 +89,6 @@ var (
 	//clients 		sync.Map
 	clients     map[string][]*Client
 	clientMutex sync.Mutex
-
-	//карта учеток
-	profiles sync.Map
 
 	//карта каналов для передачи данных
 	channels sync.Map
@@ -306,6 +301,7 @@ func greaterVersionThan(client *Client, version float64) bool {
 
 //пробежимся по профилям, найдем где есть контакты с нашим пид и добавим этот профиль нам
 func addClientToProfile(client *Client) {
+	profiles := GetProfiles()
 	profiles.Range(func(key interface{}, value interface{}) bool {
 		profile := value.(*Profile)
 		if addClientToContacts(profile.Contacts, client, profile) {
@@ -377,61 +373,6 @@ func UpdateMyIP() {
 		coordinates = GetCoordinatesByYandex(myIp)
 	} else {
 		coordinates = Options.MyCoordinates
-	}
-}
-
-func SaveProfiles() {
-	var list []*Profile
-
-	profiles.Range(func(key interface{}, value interface{}) bool {
-		profile := value.(*Profile)
-		list = append(list, profile)
-		return true
-	})
-
-	b, err := json.Marshal(list)
-	if err == nil {
-		f, err := os.Create(FILE_PROFILES + ".tmp")
-		if err == nil {
-			n, err := f.Write(b)
-			if n == len(b) && err == nil {
-				f.Close()
-
-				os.Remove(FILE_PROFILES)
-				os.Rename(FILE_PROFILES+".tmp", FILE_PROFILES)
-			} else {
-				f.Close()
-				LogAdd(MessError, "Не удалось сохранить профили: "+fmt.Sprint(err))
-			}
-		} else {
-			LogAdd(MessError, "Не удалось сохранить профили: "+fmt.Sprint(err))
-		}
-	} else {
-		LogAdd(MessError, "Не удалось сохранить профили: "+fmt.Sprint(err))
-	}
-}
-
-func LoadProfiles() {
-	var list []Profile
-
-	f, err := os.Open(FILE_PROFILES)
-	defer f.Close()
-	if err == nil {
-		b, err := ioutil.ReadAll(f)
-		if err == nil {
-			err = json.Unmarshal(b, &list)
-			if err == nil {
-				for i := 0; i < len(list); i++ {
-					profiles.Store(list[i].Email, &list[i])
-				}
-			} else {
-				LogAdd(MessError, "Не получилось загрузить профили: "+fmt.Sprint(err))
-			}
-		} else {
-			LogAdd(MessError, "Не получилось загрузить профили: "+fmt.Sprint(err))
-		}
-	} else {
-		LogAdd(MessError, "Не получилось загрузить профили: "+fmt.Sprint(err))
 	}
 }
 

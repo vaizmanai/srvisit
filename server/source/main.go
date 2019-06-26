@@ -3,6 +3,7 @@ package main
 import (
     . "./common"
     "./service"
+    "./component/profile"
     "fmt"
     "math/rand"
     "os"
@@ -30,7 +31,7 @@ func main() {
     if Options.Mode != ModeNode {
         service.LoadVNCList()
         LoadCounters()
-        service.LoadProfiles()
+        profile.LoadProfiles()
 
         go service.HelperThread() //используем для периодических действий(сохранения и т.п.)
         go service.HttpServer()   //обработка веб запросов

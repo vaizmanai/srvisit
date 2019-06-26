@@ -232,17 +232,15 @@ func handleResources(w http.ResponseWriter, r *http.Request) {
 	connectionsString = connectionsString + fmt.Sprint("</pre></div>\n\n<a href='#' onclick='show(profiles);'>профили</a><br>")
 	connectionsString = connectionsString + fmt.Sprint("<div id='profiles' class='hidden'><pre>")
 
-	profiles.Range(func(key interface{}, value interface{}) bool {
+	for _, profile := range GetProfileList() {
+		connectionsString = connectionsString + fmt.Sprintln(profile.Email) //(*value.(*Profile)).Pass)
 
-		connectionsString = connectionsString + fmt.Sprintln(key.(string)) //(*value.(*Profile)).Pass)
-
-		value.(*Profile).GetClients().Range(func(key interface{}, value interface{}) bool {
+		profile.GetClients().Range(func(key interface{}, value interface{}) bool {
 			connectionsString = connectionsString + fmt.Sprintln("\t", "<- "+key.(string))
 			return true
 		})
+	}
 
-		return true
-	})
 	connectionsString = connectionsString + "</pre></div>"
 
 	file, _ := os.Open("resource/admin/resources.html")
@@ -587,12 +585,12 @@ func checkProfileAuth(w http.ResponseWriter, r *http.Request) *Profile {
 	user, pass, ok := r.BasicAuth()
 
 	if ok {
-		value, exist := profiles.Load(user)
+		profile := GetProfile(user)
 
-		if exist {
-			if value.(*Profile).Pass == pass {
+		if profile != nil {
+			if profile.Pass == pass {
 				//LogAdd(MessInfo, "WWW Аутентификация успешна " + user + "/"+ r.RemoteAddr)
-				return value.(*Profile)
+				return profile
 			}
 		}
 	}

@@ -79,6 +79,8 @@ const (
     WaitPing         = 10
     WaitIdleAgent    = 2
     WaitConnection   = 30
+
+    ProfilesFilename = "profiles.list"
 )
 
 var (
