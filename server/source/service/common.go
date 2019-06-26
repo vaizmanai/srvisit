@@ -2,6 +2,7 @@ package service
 
 import (
 	. "../common"
+	. "../component/contact"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -90,11 +91,11 @@ var (
 	clients     map[string][]*Client
 	clientMutex sync.Mutex
 
-	//карта каналов для передачи данных
-	channels sync.Map
-
 	//карта учеток
 	profiles sync.Map
+
+	//карта каналов для передачи данных
+	channels sync.Map
 
 	//агенты обработки данных
 	nodes sync.Map
@@ -153,19 +154,6 @@ type Profile struct {
 	Capt string
 	Tel  string
 	Logo string
-}
-
-//тип для контакта
-type Contact struct {
-	Id      int
-	Caption string
-	Type    string //cont - контакт, fold - папка
-	Pid     string
-	Digest  string //но тут digest
-	Salt    string
-
-	Inner *Contact
-	Next  *Contact
 }
 
 //информацияя о ноде
@@ -329,98 +317,6 @@ func greaterVersionThan(client *Client, version float64) bool {
 	}
 
 	return true
-}
-
-func delContact(first *Contact, id int) *Contact {
-	if first == nil {
-		return first
-	}
-
-	for first != nil && first.Id == id {
-		first = first.Next
-	}
-
-	res := first
-
-	for first != nil {
-		for first.Next != nil && first.Next.Id == id {
-			first.Next = first.Next.Next
-		}
-
-		if first.Inner != nil {
-			first.Inner = delContact(first.Inner, id)
-		}
-
-		first = first.Next
-	}
-
-	return res
-}
-
-func getContact(first *Contact, id int) *Contact {
-
-	for first != nil {
-		if first.Id == id {
-			return first
-		}
-
-		if first.Inner != nil {
-			inner := getContact(first.Inner, id)
-			if inner != nil {
-				return inner
-			}
-		}
-
-		first = first.Next
-	}
-
-	return nil
-}
-
-func getContactByPid(first *Contact, pid string) *Contact {
-
-	for first != nil {
-		if CleanPid(first.Pid) == pid {
-			return first
-		}
-
-		if first.Inner != nil {
-			inner := getContactByPid(first.Inner, pid)
-			if inner != nil {
-				return inner
-			}
-		}
-
-		first = first.Next
-	}
-
-	return nil
-}
-
-func getNewId(first *Contact) int {
-	if first == nil {
-		return 1
-	}
-
-	r := 1
-
-	for first != nil {
-
-		if first.Id >= r {
-			r = first.Id + 1
-		}
-
-		if first.Inner != nil {
-			t := getNewId(first.Inner)
-			if t >= r {
-				r = t + 1
-			}
-		}
-
-		first = first.Next
-	}
-
-	return r
 }
 
 //пробежимся по профилям, найдем где есть контакты с нашим пид и добавим этот профиль нам

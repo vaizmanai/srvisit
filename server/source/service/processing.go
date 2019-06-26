@@ -2,6 +2,7 @@ package service
 
 import (
 	. "../common"
+	. "../component/contact"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -269,13 +270,13 @@ func processContact(message Message, conn *net.Conn, curClient *Client, id strin
 		defer profile.mutex.Unlock()
 
 		if i == -1 {
-			i = getNewId(profile.Contacts)
+			i = GetNewId(profile.Contacts)
 		}
 
 		if message.Messages[1] == "del" {
-			profile.Contacts = delContact(profile.Contacts, i) //удаляем ссылки на контакт
+			profile.Contacts = DelContact(profile.Contacts, i) //удаляем ссылки на контакт
 		} else {
-			c := getContact(profile.Contacts, i)
+			c := GetContact(profile.Contacts, i)
 
 			//если нет такого - создадим
 			if c == nil {
@@ -287,11 +288,11 @@ func processContact(message Message, conn *net.Conn, curClient *Client, id strin
 			}
 
 			if len(message.Messages[5]) > 0 { //поменяем родителя
-				profile.Contacts = delContact(profile.Contacts, i) //удаляем ссылки на контакт
+				profile.Contacts = DelContact(profile.Contacts, i) //удаляем ссылки на контакт
 
 				ip, err := strconv.Atoi(message.Messages[5]) //IndexParent ищем нового родителя
 				if err == nil {
-					p := getContact(profile.Contacts, ip)
+					p := GetContact(profile.Contacts, ip)
 					if p != nil {
 						c.Next = p.Inner
 						p.Inner = c
@@ -385,7 +386,7 @@ func processConnectContact(message Message, conn *net.Conn, curClient *Client, i
 
 	i, err := strconv.Atoi(message.Messages[0])
 	if err == nil {
-		p := getContact(profile.Contacts, i)
+		p := GetContact(profile.Contacts, i)
 		if p != nil {
 			if len(message.Messages) > 1 {
 				processConnect(createMessage(TMESS_CONNECT, p.Pid, p.Digest, p.Salt, message.Messages[1]), conn, curClient, id)
@@ -437,7 +438,7 @@ func processStatus(message Message, conn *net.Conn, curClient *Client, id string
 
 	i, err := strconv.Atoi(message.Messages[0])
 	if err == nil {
-		contact := getContact(curClient.Profile.Contacts, i)
+		contact := GetContact(curClient.Profile.Contacts, i)
 		if contact != nil {
 			list := clients[CleanPid(contact.Pid)]
 			if list != nil {
@@ -463,7 +464,7 @@ func processInfoContact(message Message, conn *net.Conn, curClient *Client, id s
 
 	i, err := strconv.Atoi(message.Messages[0])
 	if err == nil {
-		p := getContact(curClient.Profile.Contacts, i)
+		p := GetContact(curClient.Profile.Contacts, i)
 		if p != nil {
 			list := clients[CleanPid(p.Pid)]
 			if list != nil {
@@ -536,7 +537,7 @@ func processManage(message Message, conn *net.Conn, curClient *Client, id string
 
 	i, err := strconv.Atoi(message.Messages[0])
 	if err == nil {
-		p := getContact(curClient.Profile.Contacts, i)
+		p := GetContact(curClient.Profile.Contacts, i)
 		if p != nil {
 			list := clients[CleanPid(p.Pid)]
 			if list != nil {
@@ -586,7 +587,7 @@ func processContactReverse(message Message, conn *net.Conn, curClient *Client, i
 	if exist {
 		curProfile := value.(*Profile)
 		if GetSHA256(curProfile.Pass+curClient.Salt) == message.Messages[1] {
-			i := getNewId(curProfile.Contacts)
+			i := GetNewId(curProfile.Contacts)
 
 			c := &Contact{}
 			c.Next = curProfile.Contacts //добавляем пока только в корень

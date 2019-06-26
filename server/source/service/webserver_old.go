@@ -2,6 +2,7 @@ package service
 
 import (
 	. "../common"
+	. "../component/contact"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -153,7 +154,7 @@ func handleResources(w http.ResponseWriter, r *http.Request) {
 			client.profiles.Range(func(k interface{}, v interface{}) bool {
 
 				var capt string
-				c := getContactByPid(v.(*Profile).Contacts, CleanPid(client.Pid)) //todo потом убрать, лишние итерации не сильно нам интересны
+				c := GetContactByPid(v.(*Profile).Contacts, CleanPid(client.Pid)) //todo потом убрать, лишние итерации не сильно нам интересны
 				if c != nil {
 					capt = fmt.Sprint("/ ", c.Caption)
 				}
