@@ -1,6 +1,8 @@
 package contact
 
-import "../../common"
+import (
+	"../../common"
+)
 
 //тип для контакта
 type Contact struct {
