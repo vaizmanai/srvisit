@@ -1,8 +1,7 @@
 language: go
 
 go:
-  - 1.10.x
-  - tip
+  - minimal
 
 before_install:
   - go get github.com/gorilla/mux
