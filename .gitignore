@@ -11,3 +11,4 @@ srvisit
 cert.pem
 key.pem
 *.out
+coverage.txt
