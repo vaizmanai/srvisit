@@ -34,11 +34,6 @@ type Profile struct {
 }
 
 //todo избавиться
-func GetProfiles() *sync.Map {
-	return &profiles
-}
-
-//todo избавиться
 func (profile *Profile) GetClients() *sync.Map {
 	return &(*profile).clients
 }

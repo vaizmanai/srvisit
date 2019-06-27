@@ -2,8 +2,8 @@ package contact
 
 import (
 	"../../common"
+	"fmt"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/exp/errors/fmt"
 	"testing"
 )
 

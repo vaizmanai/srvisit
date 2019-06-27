@@ -301,10 +301,10 @@ func greaterVersionThan(client *Client, version float64) bool {
 
 //пробежимся по профилям, найдем где есть контакты с нашим пид и добавим этот профиль нам
 func addClientToProfile(client *Client) {
-	profiles := GetProfiles()
-	profiles.Range(func(key interface{}, value interface{}) bool {
-		profile := value.(*Profile)
-		if addClientToContacts(profile.Contacts, client, profile) {
+	for _, profile := range GetProfileList() {
+		//если этот клиент есть в конкретном профиле
+		if GetContactByPid(profile.Contacts, CleanPid(client.Pid)) != nil {
+			//todo исправить
 			//если мы есть хоть в одном конакте этого профиля, пробежимся по ним и отправим свой статус
 			profile.GetClients().Range(func(key interface{}, value interface{}) bool {
 				curClient := value.(*Client)
@@ -312,31 +312,7 @@ func addClientToProfile(client *Client) {
 				return true
 			})
 		}
-		return true
-	})
-}
-
-//пробежимся по всем контактам и если есть совпадение, то добавим ссылку на профиль этому клиенту
-func addClientToContacts(contact *Contact, client *Client, profile *Profile) bool {
-	res := false
-
-	for contact != nil {
-		if CleanPid(contact.Pid) == CleanPid(client.Pid) {
-			client.profiles.Store(profile.Email, profile)
-			res = true
-		}
-
-		if contact.Inner != nil {
-			innerResult := addClientToContacts(contact.Inner, client, profile)
-			if innerResult {
-				res = true
-			}
-		}
-
-		contact = contact.Next
 	}
-
-	return res
 }
 
 func checkStatuses(curClient *Client, first *Contact) {
