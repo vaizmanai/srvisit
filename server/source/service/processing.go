@@ -317,7 +317,9 @@ func processContact(message Message, conn *net.Conn, curClient *Client, id strin
 			list := clients[CleanPid(message.Messages[3])]
 			if list != nil {
 				for _, peer := range list {
-					peer.profiles.Store(profile.Email, profile)
+					peer.profilesMutex.Lock()
+					peer.profiles[profile.Email] = profile
+					peer.profilesMutex.Unlock()
 				}
 			}
 		}
@@ -597,7 +599,9 @@ func processContactReverse(message Message, conn *net.Conn, curClient *Client, i
 			c.Salt = curClient.Salt
 
 			//добавим этот профиль к авторизованному списку
-			curClient.profiles.Store(curProfile.Email, curProfile)
+			curClient.profilesMutex.Lock()
+			curClient.profiles[curProfile.Email] = curProfile
+			curClient.profilesMutex.Unlock()
 
 			//отправим всем авторизованным об изменениях
 			curProfile.GetClients().Range(func(key interface{}, value interface{}) bool {

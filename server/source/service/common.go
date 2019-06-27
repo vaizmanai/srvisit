@@ -1,373 +1,375 @@
 package service
 
 import (
-	. "../common"
-	. "../component/contact"
-	. "../component/profile"
-	"encoding/json"
-	"fmt"
-	"io/ioutil"
-	"net"
-	"os"
-	"strconv"
-	"sync"
-	"time"
+    . "../common"
+    . "../component/contact"
+    . "../component/profile"
+    "encoding/json"
+    "fmt"
+    "io/ioutil"
+    "net"
+    "os"
+    "strconv"
+    "sync"
+    "time"
 )
 
 const (
-	//виды сообщений
-	TMESS_DEAUTH          = 0  //деаутентификация()
-	TMESS_VERSION         = 1  //запрос версии
-	TMESS_AUTH            = 2  //аутентификация(генерация pid)
-	TMESS_LOGIN           = 3  //вход в профиль
-	TMESS_NOTIFICATION    = 4  //сообщение клиент
-	TMESS_REQUEST         = 5  //запрос на подключение
-	TMESS_CONNECT         = 6  //запрашиваем подключение у клиента
-	TMESS_DISCONNECT      = 7  //сообщаем об отключении клиенту
-	TMESS_REG             = 8  //регистрация профиля
-	TMESS_CONTACT         = 9  //создание, редактирование, удаление
-	TMESS_CONTACTS        = 10 //запрос списка контактов
-	TMESS_LOGOUT          = 11 //выход из профиля
-	TMESS_CONNECT_CONTACT = 12 //запрос подключения к конакту из профиля
-	TMESS_STATUSES        = 13 //запрос всех статусов
-	TMESS_STATUS          = 14 //запрос статуса
-	TMESS_INFO_CONTACT    = 15 //запрос информации о клиенте
-	TMESS_INFO_ANSWER     = 16 //ответ на запрос информации
-	TMESS_MANAGE          = 17 //запрос на управление(перезагрузка, обновление, переустановка)
-	TMESS_PING            = 18 //проверка состояния подключения
-	TMESS_CONTACT_REVERSE = 19 //добавление себя в чужой профиль
-	TMESS_SERVERS         = 20 //отправляем список агентов, чтобы клиент выбрал тот что нужен, тут же отправляем изменения
-	TMESS_STANDART_ALERT  = 21 //стандартные сообщения, чтобы была возможность интернационально выводить их
+    //виды сообщений
+    TMESS_DEAUTH          = 0  //деаутентификация()
+    TMESS_VERSION         = 1  //запрос версии
+    TMESS_AUTH            = 2  //аутентификация(генерация pid)
+    TMESS_LOGIN           = 3  //вход в профиль
+    TMESS_NOTIFICATION    = 4  //сообщение клиент
+    TMESS_REQUEST         = 5  //запрос на подключение
+    TMESS_CONNECT         = 6  //запрашиваем подключение у клиента
+    TMESS_DISCONNECT      = 7  //сообщаем об отключении клиенту
+    TMESS_REG             = 8  //регистрация профиля
+    TMESS_CONTACT         = 9  //создание, редактирование, удаление
+    TMESS_CONTACTS        = 10 //запрос списка контактов
+    TMESS_LOGOUT          = 11 //выход из профиля
+    TMESS_CONNECT_CONTACT = 12 //запрос подключения к конакту из профиля
+    TMESS_STATUSES        = 13 //запрос всех статусов
+    TMESS_STATUS          = 14 //запрос статуса
+    TMESS_INFO_CONTACT    = 15 //запрос информации о клиенте
+    TMESS_INFO_ANSWER     = 16 //ответ на запрос информации
+    TMESS_MANAGE          = 17 //запрос на управление(перезагрузка, обновление, переустановка)
+    TMESS_PING            = 18 //проверка состояния подключения
+    TMESS_CONTACT_REVERSE = 19 //добавление себя в чужой профиль
+    TMESS_SERVERS         = 20 //отправляем список агентов, чтобы клиент выбрал тот что нужен, тут же отправляем изменения
+    TMESS_STANDART_ALERT  = 21 //стандартные сообщения, чтобы была возможность интернационально выводить их
 
-	TMESS_AGENT_DEAUTH    = 0
-	TMESS_AGENT_AUTH      = 1
-	TMESS_AGENT_ADD_CODE  = 2
-	TMESS_AGENT_DEL_CODE  = 3
-	TMESS_AGENT_ADD_BYTES = 4
-	TMESS_AGENT_NEW_CONN  = 5
+    TMESS_AGENT_DEAUTH    = 0
+    TMESS_AGENT_AUTH      = 1
+    TMESS_AGENT_ADD_CODE  = 2
+    TMESS_AGENT_DEL_CODE  = 3
+    TMESS_AGENT_ADD_BYTES = 4
+    TMESS_AGENT_NEW_CONN  = 5
 
-	TMESS_AGENT_PING = 18
+    TMESS_AGENT_PING = 18
 )
 
 var (
-	//функции для обработки сообщений
-	Processing = []processingMessage{
-		{TMESS_DEAUTH, nil},
-		{TMESS_VERSION, processVersion},
-		{TMESS_AUTH, processAuth},
-		{TMESS_LOGIN, processLogin},
-		{TMESS_NOTIFICATION, processNotification},
-		{TMESS_REQUEST, processConnect},
-		{TMESS_CONNECT, nil},
-		{TMESS_DISCONNECT, processDisconnect},
-		{TMESS_REG, processReg},
-		{TMESS_CONTACT, processContact},
-		{TMESS_CONTACTS, processContacts}, //10
-		{TMESS_LOGOUT, processLogout},
-		{TMESS_CONNECT_CONTACT, processConnectContact},
-		{TMESS_STATUSES, processStatuses},
-		{TMESS_STATUS, processStatus},
-		{TMESS_INFO_CONTACT, processInfoContact},
-		{TMESS_INFO_ANSWER, processInfoAnswer},
-		{TMESS_MANAGE, processManage},
-		{TMESS_PING, processPing},
-		{TMESS_CONTACT_REVERSE, processContactReverse},
-		{TMESS_SERVERS, processServers}, //20
-		{TMESS_STANDART_ALERT, nil}}
+    //функции для обработки сообщений
+    Processing = []processingMessage{
+        {TMESS_DEAUTH, nil},
+        {TMESS_VERSION, processVersion},
+        {TMESS_AUTH, processAuth},
+        {TMESS_LOGIN, processLogin},
+        {TMESS_NOTIFICATION, processNotification},
+        {TMESS_REQUEST, processConnect},
+        {TMESS_CONNECT, nil},
+        {TMESS_DISCONNECT, processDisconnect},
+        {TMESS_REG, processReg},
+        {TMESS_CONTACT, processContact},
+        {TMESS_CONTACTS, processContacts}, //10
+        {TMESS_LOGOUT, processLogout},
+        {TMESS_CONNECT_CONTACT, processConnectContact},
+        {TMESS_STATUSES, processStatuses},
+        {TMESS_STATUS, processStatus},
+        {TMESS_INFO_CONTACT, processInfoContact},
+        {TMESS_INFO_ANSWER, processInfoAnswer},
+        {TMESS_MANAGE, processManage},
+        {TMESS_PING, processPing},
+        {TMESS_CONTACT_REVERSE, processContactReverse},
+        {TMESS_SERVERS, processServers}, //20
+        {TMESS_STANDART_ALERT, nil}}
 
-	ProcessingAgent = []processingAgent{
-		{TMESS_AGENT_DEAUTH, nil},
-		{TMESS_AGENT_AUTH, processAgentAuth},
-		{TMESS_AGENT_ADD_CODE, processAgentAddCode},
-		{TMESS_AGENT_DEL_CODE, processAgentDelCode},
-		{TMESS_AGENT_ADD_BYTES, processAgentAddBytes},
-		{TMESS_AGENT_NEW_CONN, processAgentNewConn},
+    ProcessingAgent = []processingAgent{
+        {TMESS_AGENT_DEAUTH, nil},
+        {TMESS_AGENT_AUTH, processAgentAuth},
+        {TMESS_AGENT_ADD_CODE, processAgentAddCode},
+        {TMESS_AGENT_DEL_CODE, processAgentDelCode},
+        {TMESS_AGENT_ADD_BYTES, processAgentAddBytes},
+        {TMESS_AGENT_NEW_CONN, processAgentNewConn},
 
-		18: {TMESS_AGENT_PING, processAgentPing}}
+        18: {TMESS_AGENT_PING, processAgentPing}}
 
-	//карта подключенных клиентов
-	//clients 		sync.Map
-	clients     map[string][]*Client
-	clientMutex sync.Mutex
+    //карта подключенных клиентов
+    clients      map[string][]*Client
+    clientsMutex sync.Mutex
 
-	//карта каналов для передачи данных
-	channels sync.Map
+    //карта каналов для передачи данных
+    channels sync.Map
 
-	//агенты обработки данных
-	nodes sync.Map
+    //агенты обработки данных
+    nodes sync.Map
 
-	//сокет до мастера
-	master *net.Conn
+    //сокет до мастера
+    master *net.Conn
 
-	//текстовая расшифровка статических сообщений
-	messStaticText = []string{
-		"пустое сообщение",
-		"ошибка сети",
-		"ошибка прокси",
-		"ошибка авторизации",
-		"ошибка VNC",
-		"ошибка времени ожидания",
-		"отсутствует пир",
-		"не правильный тип подключения"}
+    //текстовая расшифровка статических сообщений
+    messStaticText = []string{
+        "пустое сообщение",
+        "ошибка сети",
+        "ошибка прокси",
+        "ошибка авторизации",
+        "ошибка VNC",
+        "ошибка времени ожидания",
+        "отсутствует пир",
+        "не правильный тип подключения"}
 
-	//список доступных vnc клиентов и выбранный по-умолчанию
-	defaultVnc = 0
-	arrayVnc   []VNC
+    //список доступных vnc клиентов и выбранный по-умолчанию
+    defaultVnc = 0
+    arrayVnc   []VNC
 
-	//только для отображения на карте используем
-	myIp        = ""
-	coordinates [2]float64
+    //только для отображения на карте используем
+    myIp        = ""
+    coordinates [2]float64
 )
 
 //тип для клиента
 type Client struct {
-	Serial  string
-	Pid     string
-	Pass    string
-	Version string
-	Salt    string //for password
-	Profile *Profile
-	Token   string //for web auth
+    Serial  string
+    Pid     string
+    Pass    string
+    Version string
+    Salt    string //for password
+    Profile *Profile
+    Token   string //for web auth
 
-	Conn *net.Conn
-	Code string //for connection
+    Conn *net.Conn
+    Code string //for connection
 
-	coordinates [2]float64
-	profiles    sync.Map //профили которые содержат этого клиента в контактах(используем для отправки им информации о своем статусе)
+    coordinates   [2]float64
+
+    //профили которые содержат этого клиента в контактах(используем для отправки им информации о своем статусе)
+    profiles      map[string]*Profile
+    profilesMutex sync.Mutex
 }
 
 //информацияя о ноде
 type Node struct {
-	Id          string
-	Name        string
-	Ip          string
-	Conn        *net.Conn
-	coordinates [2]float64
+    Id          string
+    Name        string
+    Ip          string
+    Conn        *net.Conn
+    coordinates [2]float64
 }
 
 //тип для сообщения
 type Message struct {
-	TMessage int
-	Messages []string
+    TMessage int
+    Messages []string
 }
 
 //double pointer
 type dConn struct {
-	client  *Client //кто запросил трансляцию
-	server  *Client //кто транслирует
-	pointer [2]*net.Conn
-	flag    [2]bool
-	node    *Node
-	address string
-	mutex   sync.Mutex
+    client  *Client //кто запросил трансляцию
+    server  *Client //кто транслирует
+    pointer [2]*net.Conn
+    flag    [2]bool
+    node    *Node
+    address string
+    mutex   sync.Mutex
 }
 
 //обработчик для запросов агенту
 type processingAgent struct {
-	TMessage   int
-	Processing func(message Message, conn *net.Conn, curNode *Node, id string)
+    TMessage   int
+    Processing func(message Message, conn *net.Conn, curNode *Node, id string)
 }
 
 //обработчик для сообщений
 type processingMessage struct {
-	TMessage   int
-	Processing func(message Message, conn *net.Conn, curClient *Client, id string)
+    TMessage   int
+    Processing func(message Message, conn *net.Conn, curClient *Client, id string)
 }
 
 func init() {
-	clients = make(map[string][]*Client, 0)
+    clients = make(map[string][]*Client, 0)
 }
 
 func createMessage(TMessage int, Messages ...string) Message {
-	var mes Message
-	mes.TMessage = TMessage
-	mes.Messages = Messages
-	return mes
+    var mes Message
+    mes.TMessage = TMessage
+    mes.Messages = Messages
+    return mes
 }
 
 func Ping(conn *net.Conn) {
-	success := true
-	for success {
-		time.Sleep(time.Second * WaitPing)
-		success = sendMessage(conn, TMESS_PING)
-	}
+    success := true
+    for success {
+        time.Sleep(time.Second * WaitPing)
+        success = sendMessage(conn, TMESS_PING)
+    }
 }
 
 func printMessage(TMessage int, Messages ...string) []byte {
-	var mes Message
-	mes.TMessage = TMessage
-	mes.Messages = Messages
+    var mes Message
+    mes.TMessage = TMessage
+    mes.Messages = Messages
 
-	out, err := json.Marshal(mes)
-	if err != nil {
-		return []byte{}
-	}
+    out, err := json.Marshal(mes)
+    if err != nil {
+        return []byte{}
+    }
 
-	return out
+    return out
 }
 
 func sendMessage(conn *net.Conn, TMessage int, Messages ...string) bool {
-	if conn == nil {
-		LogAdd(MessError, "нет сокета для отправки")
-		return false
-	}
+    if conn == nil {
+        LogAdd(MessError, "нет сокета для отправки")
+        return false
+    }
 
-	var mes Message
-	mes.TMessage = TMessage
-	mes.Messages = Messages
+    var mes Message
+    mes.TMessage = TMessage
+    mes.Messages = Messages
 
-	out, err := json.Marshal(mes)
-	if err == nil && conn != nil {
-		_, err = (*conn).Write(out)
-		if err == nil {
-			return true
-		}
-	}
-	return false
+    out, err := json.Marshal(mes)
+    if err == nil && conn != nil {
+        _, err = (*conn).Write(out)
+        if err == nil {
+            return true
+        }
+    }
+    return false
 }
 
 func sendMessageToClients(TMessage int, Messages ...string) {
-	for _, list := range clients {
-		for _, client := range list {
-			if client != nil {
-				sendMessage((*client).Conn, TMessage, Messages...)
-			}
-		}
-	}
+    for _, list := range clients {
+        for _, client := range list {
+            if client != nil {
+                sendMessage((*client).Conn, TMessage, Messages...)
+            }
+        }
+    }
 }
 
 func (client *Client) storeClient() {
-	pid := CleanPid(client.Pid)
-	clientMutex.Lock()
+    pid := CleanPid(client.Pid)
+    clientsMutex.Lock()
 
-	list := clients[pid]
-	if list == nil {
-		list = make([]*Client, 0)
-	}
+    list := clients[pid]
+    if list == nil {
+        list = make([]*Client, 0)
+    }
 
-	UpdateCounterClient(true)
-	list = append(list, client)
-	clients[pid] = list
+    UpdateCounterClient(true)
+    list = append(list, client)
+    clients[pid] = list
 
-	clientMutex.Unlock()
+    clientsMutex.Unlock()
 }
 
 func (client *Client) removeClient() {
-	pid := CleanPid(client.Pid)
-	clientMutex.Lock()
+    pid := CleanPid(client.Pid)
+    clientsMutex.Lock()
 
-	list := clients[pid]
-	if list != nil {
-		for i := 0; i < len(list); {
-			if list[i] == client {
-				if len(list) == 1 {
-					UpdateCounterClient(false)
-					list = make([]*Client, 0)
-					break
-				}
-				UpdateCounterClient(false)
-				list[i] = list[len(list)-1]
-				list = list[:len(list)-1]
-				continue
-			}
-			i++
-		}
-	}
-	clients[pid] = list
+    list := clients[pid]
+    if list != nil {
+        for i := 0; i < len(list); {
+            if list[i] == client {
+                if len(list) == 1 {
+                    UpdateCounterClient(false)
+                    list = make([]*Client, 0)
+                    break
+                }
+                UpdateCounterClient(false)
+                list[i] = list[len(list)-1]
+                list = list[:len(list)-1]
+                continue
+            }
+            i++
+        }
+    }
+    clients[pid] = list
 
-	clientMutex.Unlock()
+    clientsMutex.Unlock()
 }
 
 func HelperThread() {
-	LogAdd(MessInfo, "helperThread запустился")
-	for true {
-		SaveProfiles()
-		SwiftCounter()
+    LogAdd(MessInfo, "helperThread запустился")
+    for true {
+        SaveProfiles()
+        SwiftCounter()
 
-		time.Sleep(time.Second * WaitHelperCycle)
-	}
-	LogAdd(MessInfo, "helperThread закончил работу")
+        time.Sleep(time.Second * WaitHelperCycle)
+    }
+    LogAdd(MessInfo, "helperThread закончил работу")
 }
 
 func greaterVersionThan(client *Client, version float64) bool {
 
-	peerVersion, err := strconv.ParseFloat(client.Version, 64)
-	if err != nil || peerVersion < version {
-		return false
-	}
+    peerVersion, err := strconv.ParseFloat(client.Version, 64)
+    if err != nil || peerVersion < version {
+        return false
+    }
 
-	return true
+    return true
 }
 
 //пробежимся по профилям, найдем где есть контакты с нашим пид и добавим этот профиль нам
 func addClientToProfile(client *Client) {
-	for _, profile := range GetProfileList() {
-		//если этот клиент есть в конкретном профиле
-		if GetContactByPid(profile.Contacts, CleanPid(client.Pid)) != nil {
-			//todo исправить
-			//если мы есть хоть в одном конакте этого профиля, пробежимся по ним и отправим свой статус
-			profile.GetClients().Range(func(key interface{}, value interface{}) bool {
-				curClient := value.(*Client)
-				sendMessage(curClient.Conn, TMESS_STATUS, CleanPid(client.Pid), "1")
-				return true
-			})
-		}
-	}
+    for _, profile := range GetProfileList() {
+        //если этот клиент есть в конкретном профиле
+        if GetContactByPid(profile.Contacts, CleanPid(client.Pid)) != nil {
+            //todo исправить
+            //если мы есть хоть в одном конакте этого профиля, пробежимся по ним и отправим свой статус
+            profile.GetClients().Range(func(key interface{}, value interface{}) bool {
+                curClient := value.(*Client)
+                sendMessage(curClient.Conn, TMESS_STATUS, CleanPid(client.Pid), "1")
+                return true
+            })
+        }
+    }
 }
 
 func checkStatuses(curClient *Client, first *Contact) {
-	var statuses []byte
-	for first != nil {
-		if first.Type != "fold" {
-			list := clients[CleanPid(first.Pid)]
-			if list != nil && len(list) > 0 {
-				//todo хз что делать, у нас может быть совсем не интересующий нас контакт онлайн из-за потенциальных дублей
-				statuses = append(statuses, printMessage(TMESS_STATUS, fmt.Sprint(CleanPid(first.Pid)), "1")...)
-			}
-		}
+    var statuses []byte
+    for first != nil {
+        if first.Type != "fold" {
+            list := clients[CleanPid(first.Pid)]
+            if list != nil && len(list) > 0 {
+                //todo хз что делать, у нас может быть совсем не интересующий нас контакт онлайн из-за потенциальных дублей
+                statuses = append(statuses, printMessage(TMESS_STATUS, fmt.Sprint(CleanPid(first.Pid)), "1")...)
+            }
+        }
 
-		if first.Inner != nil {
-			checkStatuses(curClient, first.Inner)
-		}
-		first = first.Next
-	}
-	//отправим статусы разом для этого уровня вложенности
-	sendRawBytes(curClient.Conn, statuses)
+        if first.Inner != nil {
+            checkStatuses(curClient, first.Inner)
+        }
+        first = first.Next
+    }
+    //отправим статусы разом для этого уровня вложенности
+    sendRawBytes(curClient.Conn, statuses)
 }
 
 func sendRawBytes(conn *net.Conn, bytes []byte) bool {
-	_, err := (*conn).Write(bytes)
-	if err != nil {
-		return false
-	}
-	return true
+    _, err := (*conn).Write(bytes)
+    if err != nil {
+        return false
+    }
+    return true
 }
 
 func UpdateMyIP() {
-	myIp = GetMyIpByExternalApi()
-	if Options.MyCoordinates == [2]float64{0, 0} { //options.MyCoordinates[0] == 0 && options.MyCoordinates[1] == 0 {
-		coordinates = GetCoordinatesByYandex(myIp)
-	} else {
-		coordinates = Options.MyCoordinates
-	}
+    myIp = GetMyIpByExternalApi()
+    if Options.MyCoordinates == [2]float64{0, 0} { //options.MyCoordinates[0] == 0 && options.MyCoordinates[1] == 0 {
+        coordinates = GetCoordinatesByYandex(myIp)
+    } else {
+        coordinates = Options.MyCoordinates
+    }
 }
 
 func LoadVNCList() {
-	f, err := os.Open(VNCFileList)
-	defer f.Close()
-	if err == nil {
-		b, err := ioutil.ReadAll(f)
-		if err == nil {
-			err = json.Unmarshal(b, &arrayVnc)
-			if err == nil {
-				defaultVnc = 0
-			} else {
-				LogAdd(MessError, "Не получилось загрузить список VNC: "+fmt.Sprint(err))
-			}
-		} else {
-			LogAdd(MessError, "Не получилось загрузить список VNC: "+fmt.Sprint(err))
-		}
-	} else {
-		LogAdd(MessError, "Не получилось загрузить список VNC: "+fmt.Sprint(err))
-	}
+    f, err := os.Open(VNCFileList)
+    defer f.Close()
+    if err == nil {
+        b, err := ioutil.ReadAll(f)
+        if err == nil {
+            err = json.Unmarshal(b, &arrayVnc)
+            if err == nil {
+                defaultVnc = 0
+            } else {
+                LogAdd(MessError, "Не получилось загрузить список VNC: "+fmt.Sprint(err))
+            }
+        } else {
+            LogAdd(MessError, "Не получилось загрузить список VNC: "+fmt.Sprint(err))
+        }
+    } else {
+        LogAdd(MessError, "Не получилось загрузить список VNC: "+fmt.Sprint(err))
+    }
 }
