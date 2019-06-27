@@ -1,7 +1,7 @@
-package service
+package client
 
 import (
-    "../common"
+    "../../common"
     "github.com/stretchr/testify/require"
     "testing"
 )
@@ -29,15 +29,15 @@ func TestGetStatic(t *testing.T) {
                 newClient := Client{Serial: serial, Pid: common.GetPid(serial), Salt: salt, Token: token, Pass: pass, coordinates: [2]float64{a, b}}
                 AddAuthorizedClient(email, &newClient)
             }
-            require.True(t, len(GetListAuthorizedClient(email)) == countItem)
+            require.True(t, len(GetAuthorizedClientList(email)) == countItem)
 
             DelAuthorizedClient(email, &Client{})
-            require.True(t, len(GetListAuthorizedClient(email)) == countItem)
+            require.True(t, len(GetAuthorizedClientList(email)) == countItem)
 
-            DelAuthorizedClient(email, GetListAuthorizedClient(email)[common.RandInt(0, countItem)])
-            require.True(t, len(GetListAuthorizedClient(email)) == countItem-1)
+            DelAuthorizedClient(email, GetAuthorizedClientList(email)[common.RandInt(0, countItem)])
+            require.True(t, len(GetAuthorizedClientList(email)) == countItem-1)
 
-            require.True(t, len(GetListAuthorizedClient("test@mail.com")) == 0)
+            require.True(t, len(GetAuthorizedClientList("test@mail.com")) == 0)
 
             done <- true
         }(i)
@@ -48,5 +48,5 @@ func TestGetStatic(t *testing.T) {
         <-done
     }
 
-    require.True(t, len(GetListAuthorizedClient("example@mail.com")) == countItem-1)
+    require.True(t, len(GetAuthorizedClientList("example@mail.com")) == countItem-1)
 }

@@ -2,6 +2,7 @@ package service
 
 import (
     . "../common"
+    . "../component/client"
     . "../component/contact"
     . "../component/profile"
     "encoding/json"
@@ -85,11 +86,6 @@ var (
 
         18: {TMESS_AGENT_PING, processAgentPing}}
 
-    //карта подключенных клиентов
-    //clients[Pid] = []*Client
-    clients      map[string][]*Client
-    clientsMutex sync.Mutex
-
     //карта каналов для передачи данных
     channels sync.Map
 
@@ -118,26 +114,6 @@ var (
     myIp        = ""
     coordinates [2]float64
 )
-
-//тип для клиента
-type Client struct {
-    Serial  string
-    Pid     string
-    Pass    string
-    Version string
-    Salt    string //for password
-    Profile *Profile
-    Token   string //for web auth
-
-    Conn *net.Conn
-    Code string //for connection
-
-    coordinates [2]float64
-
-    //профили которые содержат этого клиента в контактах(используем для отправки им информации о своем статусе)
-    profiles      map[string]*Profile
-    profilesMutex sync.Mutex
-}
 
 //информацияя о ноде
 type Node struct {
@@ -175,10 +151,6 @@ type processingAgent struct {
 type processingMessage struct {
     TMessage   int
     Processing func(message Message, conn *net.Conn, curClient *Client, id string)
-}
-
-func init() {
-    clients = make(map[string][]*Client, 0)
 }
 
 func createMessage(TMessage int, Messages ...string) Message {
@@ -229,56 +201,12 @@ func sendMessage(conn *net.Conn, TMessage int, Messages ...string) bool {
     return false
 }
 
-func sendMessageToClients(TMessage int, Messages ...string) {
-    for _, list := range clients {
-        for _, client := range list {
-            if client != nil {
-                sendMessage((*client).Conn, TMessage, Messages...)
-            }
+func sendMessageToAllClients(TMessage int, Messages ...string) {
+    for _, client := range GetAllClientsList() {
+        if client != nil {
+            sendMessage((*client).Conn, TMessage, Messages...)
         }
     }
-}
-
-func (client *Client) storeClient() {
-    pid := CleanPid(client.Pid)
-    clientsMutex.Lock()
-
-    list := clients[pid]
-    if list == nil {
-        list = make([]*Client, 0)
-    }
-
-    UpdateCounterClient(true)
-    list = append(list, client)
-    clients[pid] = list
-
-    clientsMutex.Unlock()
-}
-
-func (client *Client) removeClient() {
-    pid := CleanPid(client.Pid)
-    clientsMutex.Lock()
-
-    list := clients[pid]
-    if list != nil {
-        for i := 0; i < len(list); {
-            if list[i] == client {
-                if len(list) == 1 {
-                    UpdateCounterClient(false)
-                    list = make([]*Client, 0)
-                    break
-                }
-                UpdateCounterClient(false)
-                list[i] = list[len(list)-1]
-                list = list[:len(list)-1]
-                continue
-            }
-            i++
-        }
-    }
-    clients[pid] = list
-
-    clientsMutex.Unlock()
 }
 
 func HelperThread() {
@@ -307,8 +235,12 @@ func addClientToProfile(client *Client) {
     for _, profile := range GetProfileList() {
         //если этот клиент есть в конкретном профиле
         if GetContactByPid(profile.Contacts, CleanPid(client.Pid)) != nil {
+            client.profiles[profile.Email].Lock()
+            client.profiles[profile.Email] = profile
+            client.profiles[profile.Email].Unlock()
+
             //отправим всем авторизованным в этот профиль обновление статуса
-            for _, authClient := range GetListAuthorizedClient(profile.Email) {
+            for _, authClient := range GetAuthorizedClientList(profile.Email) {
                 sendMessage(authClient.Conn, TMESS_STATUS, CleanPid(client.Pid), "1")
             }
         }
@@ -319,7 +251,7 @@ func checkStatuses(curClient *Client, first *Contact) {
     var statuses []byte
     for first != nil {
         if first.Type != "fold" {
-            list := clients[CleanPid(first.Pid)]
+            list := GetClientsList(first.Pid)
             if list != nil && len(list) > 0 {
                 //todo хз что делать, у нас может быть совсем не интересующий нас контакт онлайн из-за потенциальных дублей
                 statuses = append(statuses, printMessage(TMESS_STATUS, fmt.Sprint(CleanPid(first.Pid)), "1")...)

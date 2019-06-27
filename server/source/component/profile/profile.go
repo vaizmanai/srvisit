@@ -68,10 +68,10 @@ func DelProfile(email string) {
     profiles.Delete(email)
 }
 
-func GetProfileList() []Profile {
-    list := make([]Profile, 0)
+func GetProfileList() []*Profile {
+    list := make([]*Profile, 0)
     profiles.Range(func(key interface{}, value interface{}) bool {
-        list = append(list, *value.(*Profile))
+        list = append(list, value.(*Profile))
         return true
     })
     return list

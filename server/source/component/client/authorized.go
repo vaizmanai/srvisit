@@ -1,7 +1,7 @@
-package service
+package client
 
 import (
-    "../common"
+    "../../common"
     "sync"
 )
 
@@ -35,7 +35,7 @@ func DelAuthorizedClient(email string, client *Client) {
 
 }
 
-func GetListAuthorizedClient(email string) []*Client {
+func GetAuthorizedClientList(email string) []*Client {
     var list []*Client
     for _, client := range authorized[email] {
         list = append(list, client)

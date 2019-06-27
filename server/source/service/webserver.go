@@ -66,7 +66,7 @@ func checkAuth(f func(w http.ResponseWriter, r *http.Request, client *Client)) h
             return
         }
 
-        list := clients[CleanPid(pidCookie.Value)]
+        list := GetClientsList(pidCookie.Value)
         for _, c := range list {
             if c.Token == tokenCookie.Value {
                 pidCookie.Expires = time.Now().Add(WebSessionTimeoutHour * time.Hour)
@@ -112,7 +112,7 @@ func handleAuth(w http.ResponseWriter, r *http.Request) {
 
     LogAdd(MessInfo, "trying to auth app "+pid)
 
-    list := clients[CleanPid(pid)]
+    list := GetClientsList(pid)
     for _, c := range list {
         if c.Token == token {
             cookie_pid := http.Cookie{Name: "abc", Value: pid, Expires: time.Now().Add(WebSessionTimeoutHour * time.Hour)}

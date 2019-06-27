@@ -142,25 +142,23 @@ func handleResources(w http.ResponseWriter, r *http.Request) {
     connectionsString = connectionsString + fmt.Sprint("\n\n<a href='#' onclick='show(clients);'>клиенты</a><br>")
     connectionsString = connectionsString + fmt.Sprint("<div id='clients' class='hidden'><pre>")
 
-    for _, list := range clients {
-        for _, client := range list {
-            if client.Profile == nil {
-                buf1 = "no auth"
-            } else {
-                buf1 = client.Profile.Email
+    for _, client := range GetAllClientsList() {
+        if client.Profile == nil {
+            buf1 = "no auth"
+        } else {
+            buf1 = client.Profile.Email
+        }
+
+        connectionsString = connectionsString + fmt.Sprintln(client.Pid, client.Serial, client.Version, (*client.Conn).RemoteAddr(), buf1)
+
+        for _, profile := range client.profiles {
+            var capt string
+            c := GetContactByPid(profile.Contacts, CleanPid(client.Pid)) //todo потом убрать, лишние итерации не сильно нам интересны
+            if c != nil {
+                capt = fmt.Sprint("/ ", c.Caption)
             }
 
-            connectionsString = connectionsString + fmt.Sprintln(client.Pid, client.Serial, client.Version, (*client.Conn).RemoteAddr(), buf1)
-
-            for _, profile := range client.profiles {
-                var capt string
-                c := GetContactByPid(profile.Contacts, CleanPid(client.Pid)) //todo потом убрать, лишние итерации не сильно нам интересны
-                if c != nil {
-                    capt = fmt.Sprint("/ ", c.Caption)
-                }
-
-                connectionsString = connectionsString + fmt.Sprintln("\t ->", profile.Email, capt)
-            }
+            connectionsString = connectionsString + fmt.Sprintln("\t ->", profile.Email, capt)
         }
     }
 
@@ -232,7 +230,7 @@ func handleResources(w http.ResponseWriter, r *http.Request) {
     for _, profile := range GetProfileList() {
         connectionsString = connectionsString + fmt.Sprintln(profile.Email) //(*value.(*Profile)).Pass)
 
-        for _, client := range GetListAuthorizedClient(profile.Email) {
+        for _, client := range GetAuthorizedClientList(profile.Email) {
             connectionsString = connectionsString + fmt.Sprintln("\t", "<- "+client.Pid)
         }
     }
@@ -628,22 +626,20 @@ func addMenuAdmin() string {
 func addClientsStatisticsAdmin() string {
     var webClientsStatistics []WebClientStatistic
 
-    for _, lists := range clients {
-        for _, client := range lists {
+    for _, client := range GetAllClientsList() {
 
-            var webClientStatistics WebClientStatistic
-            webClientStatistics.Latitude = client.coordinates[0]
-            webClientStatistics.Longitude = client.coordinates[1]
-            webClientStatistics.Pid = client.Pid
-            webClientStatistics.Note = "Версия: " + client.Version + "\n" //todo добавить информацию о профиле
+        var webClientStatistics WebClientStatistic
+        webClientStatistics.Latitude = client.coordinates[0]
+        webClientStatistics.Longitude = client.coordinates[1]
+        webClientStatistics.Pid = client.Pid
+        webClientStatistics.Note = "Версия: " + client.Version + "\n" //todo добавить информацию о профиле
 
-            h, _, err := net.SplitHostPort((*client.Conn).RemoteAddr().String())
-            if err == nil {
-                webClientStatistics.Ip = h
-            }
-
-            webClientsStatistics = append(webClientsStatistics, webClientStatistics)
+        h, _, err := net.SplitHostPort((*client.Conn).RemoteAddr().String())
+        if err == nil {
+            webClientStatistics.Ip = h
         }
+
+        webClientsStatistics = append(webClientsStatistics, webClientStatistics)
     }
 
     out, err := json.Marshal(webClientsStatistics)

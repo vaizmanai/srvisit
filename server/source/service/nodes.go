@@ -94,7 +94,7 @@ func masterHandler(conn *net.Conn) {
 	//если есть id значит скорее всего есть в карте
 	if len(curNode.Id) != 0 {
 		nodes.Delete(curNode.Id)
-		sendMessageToClients(TMESS_SERVERS, fmt.Sprint(false), curNode.Ip)
+		sendMessageToAllClients(TMESS_SERVERS, fmt.Sprint(false), curNode.Ip)
 	}
 
 	//удалим все сессии связанные с этим агентом
@@ -253,7 +253,7 @@ func processAgentAuth(message Message, conn *net.Conn, curNode *Node, id string)
 		LogAdd(MessInfo, id+" авторизация агента успешна")
 	}
 
-	sendMessageToClients(TMESS_SERVERS, fmt.Sprint(true), curNode.Ip)
+	sendMessageToAllClients(TMESS_SERVERS, fmt.Sprint(true), curNode.Ip)
 }
 
 func processAgentAddCode(message Message, conn *net.Conn, curNode *Node, id string) {

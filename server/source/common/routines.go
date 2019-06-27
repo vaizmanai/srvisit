@@ -229,12 +229,12 @@ func AddCounter(bytes uint64) {
     counterData.CounterMonthConnections[int(counterData.currentPos.Month()-1)] = counterData.CounterMonthConnections[int(counterData.currentPos.Month()-1)] + 1
 }
 
-func UpdateCounterClient(add bool) {
+func UpdateCounterClient(adding bool) {
 
     counterData.mutex.Lock()
     defer counterData.mutex.Unlock()
 
-    if add {
+    if adding {
         counterData.CounterClients[int(counterData.currentPos.Hour())] = counterData.CounterClients[int(counterData.currentPos.Hour())] + 1
     } else {
         counterData.CounterClients[int(counterData.currentPos.Hour())] = counterData.CounterClients[int(counterData.currentPos.Hour())] - 1

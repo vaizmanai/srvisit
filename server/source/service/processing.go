@@ -2,6 +2,7 @@ package service
 
 import (
     . "../common"
+    . "../component/client"
     . "../component/contact"
     . "../component/profile"
     "encoding/json"
@@ -74,7 +75,7 @@ func processNotification(message Message, conn *net.Conn, curClient *Client, id 
         return
     }
 
-    list := clients[CleanPid(message.Messages[0])]
+    list := GetClientsList(message.Messages[0])
 
     if list != nil {
         //todo надо бы как-то защититься от спама
@@ -102,7 +103,7 @@ func processConnect(message Message, conn *net.Conn, curClient *Client, id strin
         address = message.Messages[3]
     }
 
-    list := clients[CleanPid(message.Messages[0])]
+    list := GetClientsList(message.Messages[0])
 
     successfully := false
     if list != nil && len(list) != 0 {
@@ -314,7 +315,7 @@ func processContact(message Message, conn *net.Conn, curClient *Client, id strin
             message.Messages[0] = fmt.Sprint(i)
 
             //если такой пид онлайн - добавить наш профиль туда
-            list := clients[CleanPid(message.Messages[3])]
+            list := GetClientsList(message.Messages[3])
             if list != nil {
                 for _, peer := range list {
                     peer.profilesMutex.Lock()
@@ -325,7 +326,7 @@ func processContact(message Message, conn *net.Conn, curClient *Client, id strin
         }
 
         //отправим всем авторизованным об изменениях
-        for _, authClient := range GetListAuthorizedClient(profile.Email) {
+        for _, authClient := range GetAuthorizedClientList(profile.Email) {
             sendMessage(authClient.Conn, message.TMessage, message.Messages...)
         }
 
@@ -438,7 +439,7 @@ func processStatus(message Message, conn *net.Conn, curClient *Client, id string
     if err == nil {
         contact := GetContact(curClient.Profile.Contacts, i)
         if contact != nil {
-            list := clients[CleanPid(contact.Pid)]
+            list := GetClientsList(contact.Pid)
             if list != nil {
                 sendMessage(conn, TMESS_STATUS, contact.Pid, "1")
             } else {
@@ -464,7 +465,7 @@ func processInfoContact(message Message, conn *net.Conn, curClient *Client, id s
     if err == nil {
         p := GetContact(curClient.Profile.Contacts, i)
         if p != nil {
-            list := clients[CleanPid(p.Pid)]
+            list := GetClientsList(p.Pid)
             if list != nil {
                 for _, peer := range list {
                     sendMessage(peer.Conn, TMESS_INFO_CONTACT, curClient.Pid, p.Digest, p.Salt)
@@ -500,7 +501,7 @@ func processInfoAnswer(message Message, conn *net.Conn, curClient *Client, id st
         return
     }
 
-    list := clients[CleanPid(message.Messages[0])]
+    list := GetClientsList(message.Messages[0])
     if list != nil {
         for _, peer := range list {
             if peer.Profile != nil {
@@ -537,7 +538,7 @@ func processManage(message Message, conn *net.Conn, curClient *Client, id string
     if err == nil {
         p := GetContact(curClient.Profile.Contacts, i)
         if p != nil {
-            list := clients[CleanPid(p.Pid)]
+            list := GetClientsList(p.Pid)
             if list != nil {
                 for _, peer := range list {
                     var content []string
@@ -603,7 +604,7 @@ func processContactReverse(message Message, conn *net.Conn, curClient *Client, i
             curClient.profilesMutex.Unlock()
 
             //отправим всем авторизованным об изменениях
-            for _, client := range GetListAuthorizedClient(curProfile.Email) {
+            for _, client := range GetAuthorizedClientList(curProfile.Email) {
                 sendMessage(client.Conn, TMESS_CONTACT, fmt.Sprint(i), "node", c.Caption, c.Pid, "", "-1")
                 sendMessage(client.Conn, TMESS_STATUS, fmt.Sprint(i), "1")
             }
