@@ -5,7 +5,8 @@ go:
   - tip
 
 before_install:
-  - go get -t -v ./...
+  - github.com/gorilla/mux
+  - github.com/stretchr/testify
 
 script:
   - go test -race -coverprofile=coverage.txt -covermode=atomic
