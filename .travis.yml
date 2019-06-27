@@ -18,21 +18,17 @@ script:
   - export GOPATH=$HOME/go
   - export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
   - go version
+  - go get github.com/gorilla/mux
+  - go get github.com/stretchr/testify  
   - which go
   - "$TRAVIS_BUILD_DIR/build/build.py --procs=2 --release"
-
+  - go test -race -coverprofile=coverage.txt -covermode=atomic
+  
 before_deploy:
   - export TRAVIS_TAG=${TRAVIS_TAG:-snapshot-$(date +'%Y%m%d%H%M%S')-$(git log --format=%h -1)}
   - export RESULTRA_DIST_BIN="./build/dest/docker/resultra.linux-amd64.tar.gz"
   - export RESULTRA_DIST_BIN_TAGGED="resultra.linux-amd64.$TRAVIS_TAG.tar.gz"
   - cp $RESULTRA_DIST_BIN $RESULTRA_DIST_BIN_TAGGED
-
-before_install:
-  - go get github.com/gorilla/mux
-  - go get github.com/stretchr/testify
-
-script:
-  - go test -race -coverprofile=coverage.txt -covermode=atomic
 
 after_success:
   - bash <(curl -s https://codecov.io/bash)
