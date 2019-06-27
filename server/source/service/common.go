@@ -86,6 +86,7 @@ var (
         18: {TMESS_AGENT_PING, processAgentPing}}
 
     //карта подключенных клиентов
+    //clients[Pid] = []*Client
     clients      map[string][]*Client
     clientsMutex sync.Mutex
 
@@ -131,7 +132,7 @@ type Client struct {
     Conn *net.Conn
     Code string //for connection
 
-    coordinates   [2]float64
+    coordinates [2]float64
 
     //профили которые содержат этого клиента в контактах(используем для отправки им информации о своем статусе)
     profiles      map[string]*Profile
@@ -306,13 +307,10 @@ func addClientToProfile(client *Client) {
     for _, profile := range GetProfileList() {
         //если этот клиент есть в конкретном профиле
         if GetContactByPid(profile.Contacts, CleanPid(client.Pid)) != nil {
-            //todo исправить
-            //если мы есть хоть в одном конакте этого профиля, пробежимся по ним и отправим свой статус
-            profile.GetClients().Range(func(key interface{}, value interface{}) bool {
-                curClient := value.(*Client)
-                sendMessage(curClient.Conn, TMESS_STATUS, CleanPid(client.Pid), "1")
-                return true
-            })
+            //отправим всем авторизованным в этот профиль обновление статуса
+            for _, authorized := range authorized[profile.Email] {
+                sendMessage(authorized.Conn, TMESS_STATUS, CleanPid(client.Pid), "1")
+            }
         }
     }
 }

@@ -116,17 +116,15 @@ func mainHandler(conn *net.Conn) {
 
     //удалим себя из профиля если авторизованы
     if curClient.Profile != nil {
-        curClient.Profile.GetClients().Delete(CleanPid(curClient.Pid))
+        DelAuthorizedClient(curClient.Profile.Email, &curClient)
     }
 
     //пробежимся по профилям где мы есть и отправим новый статус
     for _, profile := range curClient.profiles {
         //все кто авторизовался в этот профиль должен получить новый статус
-        profile.GetClients().Range(func(key interface{}, value interface{}) bool {
-            client := value.(*Client)
+        for _, client := range GetListAuthorizedClient(profile.Email) {
             sendMessage(client.Conn, TMESS_STATUS, CleanPid(curClient.Pid), "0")
-            return true
-        })
+        }
     }
 
     //удалим себя из карты клиентов

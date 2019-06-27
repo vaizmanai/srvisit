@@ -2,8 +2,8 @@ package main
 
 import (
     . "./common"
-    "./service"
     "./component/profile"
+    "./service"
     "fmt"
     "math/rand"
     "os"

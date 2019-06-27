@@ -184,10 +184,10 @@ func processLogin(message Message, conn *net.Conn, curClient *Client, id string)
     if profile != nil {
         if message.Messages[1] == GetSHA256(profile.Pass+curClient.Salt) {
             LogAdd(MessInfo, id+" авторизация профиля пройдена")
-            sendMessage(conn, TMESS_LOGIN)
 
+            sendMessage(conn, TMESS_LOGIN)
             curClient.Profile = profile
-            profile.GetClients().Store(CleanPid(curClient.Pid), curClient)
+            AddAuthorizedClient(profile.Email, curClient)
             processContacts(message, conn, curClient, id)
             return
         }
@@ -325,10 +325,9 @@ func processContact(message Message, conn *net.Conn, curClient *Client, id strin
         }
 
         //отправим всем авторизованным об изменениях
-        profile.GetClients().Range(func(key interface{}, value interface{}) bool {
-            sendMessage(value.(*Client).Conn, message.TMessage, message.Messages...)
-            return true
-        })
+        for _, authClient := range authorized[profile.Email] {
+            sendMessage(authClient.Conn, message.TMessage, message.Messages...)
+        }
 
         processStatus(createMessage(TMESS_STATUS, fmt.Sprint(i)), conn, curClient, id)
 
@@ -366,7 +365,7 @@ func processLogout(message Message, conn *net.Conn, curClient *Client, id string
         return
     }
 
-    curClient.Profile.GetClients().Delete(CleanPid(curClient.Pid))
+    DelAuthorizedClient(curClient.Profile.Email, curClient)
     curClient.Profile = nil
 }
 
@@ -604,11 +603,10 @@ func processContactReverse(message Message, conn *net.Conn, curClient *Client, i
             curClient.profilesMutex.Unlock()
 
             //отправим всем авторизованным об изменениях
-            curProfile.GetClients().Range(func(key interface{}, value interface{}) bool {
-                sendMessage(value.(*Client).Conn, TMESS_CONTACT, fmt.Sprint(i), "node", c.Caption, c.Pid, "", "-1")
-                sendMessage(value.(*Client).Conn, TMESS_STATUS, fmt.Sprint(i), "1")
-                return true
-            })
+            for _, client := range GetListAuthorizedClient(curProfile.Email) {
+                sendMessage(client.Conn, TMESS_CONTACT, fmt.Sprint(i), "node", c.Caption, c.Pid, "", "-1")
+                sendMessage(client.Conn, TMESS_STATUS, fmt.Sprint(i), "1")
+            }
 
             LogAdd(MessInfo, id+" операция с контактом выполнена")
             return

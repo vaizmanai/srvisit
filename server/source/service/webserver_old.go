@@ -232,10 +232,9 @@ func handleResources(w http.ResponseWriter, r *http.Request) {
     for _, profile := range GetProfileList() {
         connectionsString = connectionsString + fmt.Sprintln(profile.Email) //(*value.(*Profile)).Pass)
 
-        profile.GetClients().Range(func(key interface{}, value interface{}) bool {
-            connectionsString = connectionsString + fmt.Sprintln("\t", "<- "+key.(string))
-            return true
-        })
+        for _, client := range GetListAuthorizedClient(profile.Email) {
+            connectionsString = connectionsString + fmt.Sprintln("\t", "<- "+client.Pid)
+        }
     }
 
     connectionsString = connectionsString + "</pre></div>"

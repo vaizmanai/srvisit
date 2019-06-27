@@ -22,10 +22,8 @@ type Profile struct {
     Email string
     Pass  string
 
-    Contacts *Contact
-    mutex    sync.Mutex
-
-    clients sync.Map //клиенты которые авторизовались в этот профиль(используем для отправки им информации о статусе или изменений контактов)
+    Contacts      *Contact
+    contactsMutex sync.Mutex
 
     //всякая информация
     Capt string
@@ -33,17 +31,12 @@ type Profile struct {
     Logo string
 }
 
-//todo избавиться
-func (profile *Profile) GetClients() *sync.Map {
-    return &(*profile).clients
-}
-
 func (profile *Profile) Lock() {
-    profile.mutex.Lock()
+    profile.contactsMutex.Lock()
 }
 
 func (profile *Profile) Unlock() {
-    profile.mutex.Unlock()
+    profile.contactsMutex.Unlock()
 }
 
 func GetProfile(email string) *Profile {
@@ -108,7 +101,8 @@ func SaveProfiles() {
 
         err = os.Remove(common.ProfilesFilename)
         if err != nil {
-            common.LogAdd(common.MessError, "Ошибка при сохранении профилей: "+fmt.Sprint(err))
+            //если это первое сохранение, то файла может ещё и не быть который мы хотим удалить
+            //common.LogAdd(common.MessError, "Ошибка при сохранении профилей: "+fmt.Sprint(err))
         }
 
         err = os.Rename(common.ProfilesFilename+".tmp", common.ProfilesFilename)
