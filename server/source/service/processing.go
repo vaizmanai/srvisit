@@ -325,7 +325,7 @@ func processContact(message Message, conn *net.Conn, curClient *Client, id strin
         }
 
         //отправим всем авторизованным об изменениях
-        for _, authClient := range authorized[profile.Email] {
+        for _, authClient := range GetListAuthorizedClient(profile.Email) {
             sendMessage(authClient.Conn, message.TMessage, message.Messages...)
         }
 

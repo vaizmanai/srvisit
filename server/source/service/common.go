@@ -308,8 +308,8 @@ func addClientToProfile(client *Client) {
         //если этот клиент есть в конкретном профиле
         if GetContactByPid(profile.Contacts, CleanPid(client.Pid)) != nil {
             //отправим всем авторизованным в этот профиль обновление статуса
-            for _, authorized := range authorized[profile.Email] {
-                sendMessage(authorized.Conn, TMESS_STATUS, CleanPid(client.Pid), "1")
+            for _, authClient := range GetListAuthorizedClient(profile.Email) {
+                sendMessage(authClient.Conn, TMESS_STATUS, CleanPid(client.Pid), "1")
             }
         }
     }

@@ -24,11 +24,11 @@ var (
         {"clearlog", processApiClearLog},
         {"profile_save", processApiProfileSave},
         {"profile_get", processApiProfileGet},
-        {"save_Options", processApiSaveOptions},
-        {"Options_save", processApiOptionsSave},
+        {"save_options", processApiSaveOptions},
+        {"options_save", processApiOptionsSave},
         {"reload", processApiReload},
         {"reopen", processApiReopen},
-        {"Options_get", processApiOptionsGet},
+        {"options_get", processApiOptionsGet},
         {"version", processApiVersion}}
 
     //меню веб интерфейса админки
