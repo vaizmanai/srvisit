@@ -2,6 +2,7 @@ package service
 
 import (
     . "../common"
+    . "../component/client"
     "encoding/json"
     "fmt"
     "github.com/gorilla/mux"

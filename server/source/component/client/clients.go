@@ -28,17 +28,13 @@ type Client struct {
     Code string //for connection
 
     coordinates [2]float64
-
-    //профили которые содержат этого клиента в контактах(используем для отправки им информации о своем статусе)
-    profiles      map[string]*Profile
-    profilesMutex sync.Mutex
 }
 
 func init() {
     clients = make(map[string][]*Client, 0)
 }
 
-func (client *Client) storeClient() {
+func (client *Client) StoreClient() {
     pid := common.CleanPid(client.Pid)
     clientsMutex.Lock()
 
@@ -54,7 +50,7 @@ func (client *Client) storeClient() {
     clientsMutex.Unlock()
 }
 
-func (client *Client) removeClient() {
+func (client *Client) RemoveClient() {
     pid := common.CleanPid(client.Pid)
     clientsMutex.Lock()
 
@@ -101,4 +97,12 @@ func GetAllClientsList() []*Client {
     }
 
     return resp
+}
+
+func (client *Client) Coordinates() [2]float64 {
+    return client.coordinates
+}
+
+func (client *Client) SetCoordinates(coordinate [2]float64) {
+    client.coordinates = coordinate
 }

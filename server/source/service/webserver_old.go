@@ -2,6 +2,7 @@ package service
 
 import (
     . "../common"
+    . "../component/client"
     . "../component/contact"
     . "../component/profile"
     "bytes"
@@ -151,7 +152,8 @@ func handleResources(w http.ResponseWriter, r *http.Request) {
 
         connectionsString = connectionsString + fmt.Sprintln(client.Pid, client.Serial, client.Version, (*client.Conn).RemoteAddr(), buf1)
 
-        for _, profile := range client.profiles {
+
+        for _, profile := range GetContainedProfileList(client.Pid) {
             var capt string
             c := GetContactByPid(profile.Contacts, CleanPid(client.Pid)) //todo потом убрать, лишние итерации не сильно нам интересны
             if c != nil {
@@ -629,8 +631,8 @@ func addClientsStatisticsAdmin() string {
     for _, client := range GetAllClientsList() {
 
         var webClientStatistics WebClientStatistic
-        webClientStatistics.Latitude = client.coordinates[0]
-        webClientStatistics.Longitude = client.coordinates[1]
+        webClientStatistics.Latitude = client.Coordinates()[0]
+        webClientStatistics.Longitude = client.Coordinates()[1]
         webClientStatistics.Pid = client.Pid
         webClientStatistics.Note = "Версия: " + client.Version + "\n" //todo добавить информацию о профиле
 
@@ -696,11 +698,11 @@ func addConnectionsAdmin() string {
 
         var webConnectionStatistic WebConnectionStatistic
 
-        webConnectionStatistic.Client1.Latitude = dConn.client.coordinates[0]
-        webConnectionStatistic.Client1.Longitude = dConn.client.coordinates[1]
+        webConnectionStatistic.Client1.Latitude = dConn.client.Coordinates()[0]
+        webConnectionStatistic.Client1.Longitude = dConn.client.Coordinates()[1]
 
-        webConnectionStatistic.Client2.Latitude = dConn.server.coordinates[0]
-        webConnectionStatistic.Client2.Longitude = dConn.server.coordinates[1]
+        webConnectionStatistic.Client2.Latitude = dConn.server.Coordinates()[0]
+        webConnectionStatistic.Client2.Longitude = dConn.server.Coordinates()[1]
 
         if dConn.node != nil {
             webConnectionStatistic.Node.Latitude = (*dConn.node).coordinates[0]

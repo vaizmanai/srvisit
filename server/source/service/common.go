@@ -235,9 +235,7 @@ func addClientToProfile(client *Client) {
     for _, profile := range GetProfileList() {
         //если этот клиент есть в конкретном профиле
         if GetContactByPid(profile.Contacts, CleanPid(client.Pid)) != nil {
-            client.profiles[profile.Email].Lock()
-            client.profiles[profile.Email] = profile
-            client.profiles[profile.Email].Unlock()
+            AddContainedProfile(client.Pid, profile)
 
             //отправим всем авторизованным в этот профиль обновление статуса
             for _, authClient := range GetAuthorizedClientList(profile.Email) {

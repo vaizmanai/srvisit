@@ -2,6 +2,7 @@ package service
 
 import (
     . "../common"
+    . "../component/client"
     "bufio"
     "bytes"
     "encoding/json"
@@ -120,7 +121,7 @@ func mainHandler(conn *net.Conn) {
     }
 
     //пробежимся по профилям где мы есть и отправим новый статус
-    for _, profile := range curClient.profiles {
+    for _, profile := range GetContainedProfileList(curClient.Pid) {
         //все кто авторизовался в этот профиль должен получить новый статус
         for _, client := range GetAuthorizedClientList(profile.Email) {
             sendMessage(client.Conn, TMESS_STATUS, CleanPid(curClient.Pid), "0")
@@ -128,7 +129,7 @@ func mainHandler(conn *net.Conn) {
     }
 
     //удалим себя из карты клиентов
-    curClient.removeClient()
+    curClient.RemoveClient()
 
     LogAdd(MessInfo, id+" mainServer потерял соединение с пиром "+fmt.Sprint((*conn).RemoteAddr()))
 }

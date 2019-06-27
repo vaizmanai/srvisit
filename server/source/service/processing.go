@@ -51,8 +51,8 @@ func processAuth(message Message, conn *net.Conn, curClient *Client, id string) 
         curClient.Serial = message.Messages[0]
         curClient.Salt = salt
         curClient.Token = token
-        curClient.storeClient()
-        curClient.coordinates = [2]float64{0, 0}
+        curClient.StoreClient()
+        curClient.SetCoordinates([2]float64{0, 0})
 
         addClientToProfile(curClient)
         LogAdd(MessInfo, id+" авторизация успешна")
@@ -61,7 +61,7 @@ func processAuth(message Message, conn *net.Conn, curClient *Client, id string) 
         go func() {
             h, _, err := net.SplitHostPort((*(*curClient).Conn).RemoteAddr().String())
             if err == nil {
-                (*curClient).coordinates = GetCoordinatesByYandex(h)
+                (*curClient).SetCoordinates(GetCoordinatesByYandex(h))
             }
         }()
     }
@@ -318,9 +318,7 @@ func processContact(message Message, conn *net.Conn, curClient *Client, id strin
             list := GetClientsList(message.Messages[3])
             if list != nil {
                 for _, peer := range list {
-                    peer.profilesMutex.Lock()
-                    peer.profiles[profile.Email] = profile
-                    peer.profilesMutex.Unlock()
+                    AddContainedProfile(peer.Pid, profile)
                 }
             }
         }
@@ -599,9 +597,7 @@ func processContactReverse(message Message, conn *net.Conn, curClient *Client, i
             c.Salt = curClient.Salt
 
             //добавим этот профиль к авторизованному списку
-            curClient.profilesMutex.Lock()
-            curClient.profiles[curProfile.Email] = curProfile
-            curClient.profilesMutex.Unlock()
+            AddContainedProfile(curClient.Pid, curProfile)
 
             //отправим всем авторизованным об изменениях
             for _, client := range GetAuthorizedClientList(curProfile.Email) {
