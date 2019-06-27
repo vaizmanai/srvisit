@@ -21,7 +21,8 @@ script:
   - go get github.com/gorilla/mux
   - go get github.com/stretchr/testify  
   - which go
-  - "$TRAVIS_BUILD_DIR/build/build.py --procs=2 --release"
+  - cd $TRAVIS_BUILD_DIR
+  - go build
   - go test -race -coverprofile=coverage.txt -covermode=atomic
   
 before_deploy:
