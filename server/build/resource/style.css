@@ -1,0 +1,392 @@
+html{
+	height: 100%;
+}
+body{
+	/*height: 100%;*/
+	padding: 0;
+	margin: 0;
+	font-family: Verdana;
+	background-color: #DEE0F2;
+}
+
+img {
+	width: 350px;
+}
+
+.content {
+	width: 1000px;
+	border: 0px solid;
+	margin: auto;
+	margin-top: 30px;
+}
+
+.desc {
+	border: 0px none;
+}
+
+tr {
+	height: 30px;
+	border: 1px solid;
+}
+
+td{
+	border: 0px solid;
+	text-align: right;
+}
+
+table{
+	border-spacing: 0 0;
+	width: 100%;			
+	padding: 10px;
+	border-radius: 3px;
+	border: 1px solid #bbbbbb;
+	background-color: #F7F7F7;
+}
+
+input {
+	width: 100px;
+	border: 1px solid #bbbbbb;
+	padding: 5px;
+}
+input[type=text] {
+	
+	height: 100%;
+	border: 1px solid #bbbbbb;
+	padding: 5px;
+}
+select {
+	height: 100%;
+	border: 1px solid #bbbbbb;
+	padding: 5px;
+}
+select:hover {
+	border: 1px solid #0021FF;
+	cursor: pointer;
+}
+
+input:hover {
+	border: 1px solid #0021FF;
+	cursor: pointer;
+}
+
+.button{
+	margin-left: 10px;
+	width: 90px;
+	border-radius: 3px;
+	padding: 5px 10px;
+	border: 1px solid #bbbbbb;
+}
+.button:hover{
+	background-color: #66CCFF;
+	cursor: pointer;
+}
+.button:active{
+	background-color: #3399FF;
+}			
+
+.bdelete{
+	padding: 1px 6px;
+}
+
+textarea{
+	width: 386px;
+	max-width: 406px;
+	height: 80px;
+}
+textarea:hover {
+	border: 1px solid #0021FF;
+	cursor: pointer;
+}
+
+.hoverSign:hover{
+	background-color: #FFE68C;	
+}
+
+.header {
+	height: 30px;
+	text-align: center;
+	font-size: 22px;
+}
+
+.aright {
+	text-align: right;
+}
+
+.amid {
+	text-align: center;
+}
+.aleft{
+	text-align: left;
+}
+.r1 {
+	width: 200px;
+}
+
+.r2 {
+	width: 400px;
+}
+.h1{
+	height: 1px;
+}
+.h5{
+	height: 5px;
+}
+
+.w170{
+	width: 170px;
+}
+
+.pleft{
+	padding-left: 10px;
+}
+
+.cur{
+	cursor: pointer;
+}
+
+.clred{
+    background-color: red;
+}
+
+.clgreen{
+    background-color: green;
+}
+
+.clgrey{
+    background-color: gray;
+}
+
+.remoteform {
+	width: 250px;
+	border-radius: 3px;
+	margin: auto;
+}
+
+.remoteform input[type="button"] {
+	width: 112px;
+	margin-bottom: 10px;
+}
+
+.remoteform input {
+	border-radius: 3px;
+}
+
+.capt1 {
+	font-size: 12pt;
+}
+
+.marker{
+    width: 10px;
+    height: 10px;
+    float: right;
+    margin: 5px;
+}
+
+.checkerinput{
+    width: 150px;
+}
+
+.copyright{
+	font-size: 7pt;
+}
+
+.mypid{
+	color: #0000CC;
+}
+
+.mypass{
+	color: #00CC00;
+}
+
+a{
+	padding: 5px;
+    color: #0c0c0c;
+}
+
+a:active{
+    color: #bcbcbc;
+}
+
+a:hover{
+    color: #0021FF;
+}
+
+.hidden {
+	display: none;
+}
+/*--dialog---------*/
+
+.dialog{
+	position: absolute;
+	top: 0px;
+	width: 370px;
+	height: 100%;
+	background-color: rgba(172, 172, 172, 0.7);
+	font-family: Verdana;
+}
+
+.dialog>div{
+	padding: 0px;
+	padding-top: 50px;
+	padding-left: 25px;
+	padding-right: 25px;
+	padding-bottom: 25px;
+	width: 370px;
+	margin: auto;
+	min-width: 100px;
+	background-color: rgba(255, 255, 255, 1);
+	text-align: right;
+}
+
+.dialog>div.estate{
+	width: 800px;
+}
+
+.dialog .header{
+	width: 100%;
+	text-align: center;
+	padding-bottom: 15px;
+	font-weight: bold;
+	font-size: 18px;
+}
+
+.dialog .content{
+	text-align: left;
+	padding-bottom: 15px;
+	margin: auto;
+	width: 250px;
+	min-width: 100px;
+	background-color: rgba(255, 255, 255, 1);
+}
+
+.dialog .c1{
+	width: 200px;
+}
+
+.dialog tr{
+	height: 30px;
+}
+
+.estate table{
+	width: 100%;
+	min-width: 100px;
+	text-align: left;
+	border: 0px;
+}
+.estate td{
+	border: 0px;
+}
+
+.dialog .estate select{
+	width: 126px;
+}
+
+.estate textarea{
+	width: 385px;
+	min-width: 385px;
+	max-width: 385px;
+	height: 364px;
+	min-height: 364px;
+	max-height: 364px;
+	font-size: 18px;
+}
+
+.content textarea{
+	width: 250px;
+	min-width: 250px;
+	max-width: 250px;
+	height: 100px;
+	min-height: 100px;
+	max-height: 100px;
+	font-size: 18px;
+}
+
+.dialog input{
+	font-size: 22px;
+	border-radius: 3px;
+	width: 250px;
+	text-align: left;
+	padding-left: 5px;
+	margin-bottom: 10px;
+}
+
+.dialog select{
+	font-size: 22px;
+	height: 35px;
+	width: 262px;
+	border-radius: 3px;
+
+	text-align: left;
+	padding-left: 5px;
+	margin-bottom: 10px;
+}
+
+.dialog input[type='button']{
+	text-align: center;
+	width: 125px;
+	margin: 5px;
+	height: 30px;
+	padding-top: 5px;
+	padding-bottom: 5px;
+	cursor: pointer;
+	font-size: 18px;
+}
+.dialog input[type='submit']{
+	text-align: center;
+	width: 125px;
+	margin: 5px;
+	height: 30px;
+	padding-top: 5px;
+	padding-bottom: 5px;
+	cursor: pointer;
+	font-size: 18px;
+}
+
+/*-----------------*/
+.profile form {
+	width: 200px;
+	margin: auto;
+}
+
+.profile p {
+	margin: 5px 0px;
+	color: #333333;
+}
+
+.profile input {
+	width: 200px;
+}
+
+.profile input[type=submit] {
+	width: 100px;
+	margin-left: 112px;
+}
+/*-----------------*/
+.option form {
+	width: 200px;
+	margin: auto;
+}
+
+.option p {
+	margin: 5px 0px;
+	color: #333333;
+}
+
+.option input {
+	width: 200px;
+}
+
+.option select {
+	width: 212px;
+}
+
+.option input[type=button] {
+	width: 125px;
+	margin: 5px;
+}
+
+.option input[type=submit] {
+	width: 125px;
+	margin: 5px;
+}
+/*-----------------*/

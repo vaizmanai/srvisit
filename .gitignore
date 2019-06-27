@@ -1,6 +1,5 @@
 
-.idea/*
-vnc.list
+.idea
 profiles.list
 options.cfg
 resource/vnc/*
@@ -9,3 +8,6 @@ counters.json
 *.exe
 node_log.txt
 srvisit
+cert.pem
+key.pem
+*.out
