@@ -23,7 +23,7 @@ script:
   - which go
   - cd $TRAVIS_BUILD_DIR/server/source
   - go build
-  - go test -race -coverprofile=coverage.txt -covermode=atomic ./...
+  - go test -coverprofile=coverage.txt -covermode=atomic ./...
   
 before_deploy:
   - export TRAVIS_TAG=${TRAVIS_TAG:-snapshot-$(date +'%Y%m%d%H%M%S')-$(git log --format=%h -1)}
