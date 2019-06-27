@@ -42,3 +42,14 @@ func GetAuthorizedClientList(email string) []*Client {
     }
     return list
 }
+
+//возварщает список всех клиентов, для теста
+func getContainedAllClientList() []*Client {
+    var list []*Client
+    for _, client := range authorized {
+        for _, item := range client {
+            list = append(list, item)
+        }
+    }
+    return list
+}

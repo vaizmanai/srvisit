@@ -6,7 +6,7 @@ import (
     "testing"
 )
 
-func TestGetStatic(t *testing.T) {
+func TestAuthorizedStatic(t *testing.T) {
     countItem := 1000
     countThread := 50
     done := make(chan bool)
@@ -49,4 +49,6 @@ func TestGetStatic(t *testing.T) {
     }
 
     require.True(t, len(GetAuthorizedClientList("example@mail.com")) == countItem-1)
+
+    require.True(t, len(getContainedAllClientList()) == countItem * countThread - countThread)
 }

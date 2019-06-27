@@ -31,10 +31,12 @@ type Profile struct {
     Logo string
 }
 
+//todo избавиться
 func (profile *Profile) Lock() {
     profile.contactsMutex.Lock()
 }
 
+//todo избавиться
 func (profile *Profile) Unlock() {
     profile.contactsMutex.Unlock()
 }

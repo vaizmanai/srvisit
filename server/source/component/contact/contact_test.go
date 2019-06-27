@@ -12,10 +12,10 @@ const countItem = 5000
 func TestGetStatic(t *testing.T) {
 	t.Parallel()
 
-	origin := new(Contact)
+	origin := &Contact{Id: GetNewId(nil)}
 
 	c := &Contact{Caption: "c0", Pid: "111:111:111:000", Id: GetNewId(origin)}
-	c.Next = origin
+	c.Inner = origin
 	origin = c
 
 	c = &Contact{Caption: "c1", Pid: "111:111:111:111", Id: GetNewId(origin)}
@@ -23,7 +23,7 @@ func TestGetStatic(t *testing.T) {
 	origin = c
 
 	c = &Contact{Caption: "c2", Pid: "111:111:111:222", Id: GetNewId(origin)}
-	c.Next = origin
+	c.Inner = origin
 	origin = c
 
 	c = &Contact{Caption: "c3", Pid: "111:111:111:333", Id: GetNewId(origin)}
@@ -31,7 +31,7 @@ func TestGetStatic(t *testing.T) {
 	origin = c
 
 	c = &Contact{Caption: "c4", Pid: "111:111:111:444", Id: GetNewId(origin)}
-	c.Next = origin
+	c.Inner = origin
 	origin = c
 
 	c = &Contact{Caption: "c5", Pid: "111:111:111:555", Id: GetNewId(origin)}
@@ -39,7 +39,7 @@ func TestGetStatic(t *testing.T) {
 	origin = c
 
 	c = &Contact{Caption: "c6", Pid: "111:111:111:666", Id: GetNewId(origin)}
-	c.Next = origin
+	c.Inner = origin
 	origin = c
 
 	c = &Contact{Caption: "c7", Pid: "111:111:111:777", Id: GetNewId(origin)}
@@ -47,7 +47,7 @@ func TestGetStatic(t *testing.T) {
 	origin = c
 
 	c = &Contact{Caption: "c8", Pid: "111:111:111:888", Id: GetNewId(origin)}
-	c.Next = origin
+	c.Inner = origin
 	origin = c
 
 	c = &Contact{Caption: "c9", Pid: "111:111:111:999", Id: GetNewId(origin)}
@@ -58,6 +58,10 @@ func TestGetStatic(t *testing.T) {
 
 	require.True(t, testContact7 != nil)
 	require.True(t, (*testContact7).Pid == "111:111:111:777")
+
+	require.True(t, DelContact(nil, 123) == nil)
+	require.True(t, GetContact(origin, 0) == nil)
+	require.True(t, GetNewId(nil) == 1)
 }
 
 func TestNext(t *testing.T) {

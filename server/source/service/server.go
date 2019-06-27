@@ -115,9 +115,10 @@ func mainHandler(conn *net.Conn) {
     }
     (*conn).Close()
 
-    //удалим себя из профиля если авторизованы
+    //удалим связи с профилем
     if curClient.Profile != nil {
         DelAuthorizedClient(curClient.Profile.Email, &curClient)
+        DelContainedProfile(curClient.Pid, curClient.Profile)
     }
 
     //пробежимся по профилям где мы есть и отправим новый статус
