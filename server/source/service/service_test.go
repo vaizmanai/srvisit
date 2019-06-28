@@ -4,6 +4,7 @@ import (
 	"../common"
 	"../component/client"
 	"encoding/json"
+	"fmt"
 	"github.com/stretchr/testify/require"
 	"net"
 	"testing"
