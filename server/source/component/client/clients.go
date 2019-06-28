@@ -11,7 +11,7 @@ var (
 	//карта подключенных клиентов
 	//clients[Pid] = []*Client
 	clients      map[string][]*Client
-	clientsMutex sync.Mutex
+	clientsMutex sync.RWMutex
 )
 
 //тип для клиента
@@ -79,23 +79,27 @@ func (client *Client) RemoveClient() {
 func GetClientsList(pid string) []*Client {
 	pid = common.CleanPid(pid)
 
+	clientsMutex.RLock()
 	list := clients[pid]
 	if list == nil {
 		list = make([]*Client, 0)
 	}
 
+	clientsMutex.RUnlock()
 	return list
 }
 
 func GetAllClientsList() []*Client {
 	resp := make([]*Client, 0)
 
+	clientsMutex.RLock()
 	for _, list := range clients {
 		for _, client := range list {
 			resp = append(resp, client)
 		}
 	}
 
+	clientsMutex.RUnlock()
 	return resp
 }
 

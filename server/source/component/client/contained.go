@@ -10,7 +10,7 @@ var (
 	//держим список онлайн клиентов которые присутствуют в профилях - используем для оперативной отправки статуса
 	//contained[Client.Pid] = map[email]*Profile
 	contained      map[string]map[string]*Profile
-	containedMutex sync.Mutex
+	containedMutex sync.RWMutex
 )
 
 func init() {
@@ -43,17 +43,19 @@ func DelContainedProfile(pid string, profile *Profile) {
 //возварщает список профилей где есть указанный pid
 func GetContainedProfileList(pid string) []*Profile {
 	pid = common.CleanPid(pid)
-
+	containedMutex.RLock()
 	var list []*Profile
 	for _, profile := range contained[pid] {
 		list = append(list, profile)
 	}
 
 	return list
+	containedMutex.RUnlock()
 }
 
 //возварщает список всех профилей, для теста
 func getContainedAllProfileList() []*Profile {
+	containedMutex.RLock()
 	var list []*Profile
 	for _, profile := range contained {
 		for _, item := range profile {
@@ -61,4 +63,5 @@ func getContainedAllProfileList() []*Profile {
 		}
 	}
 	return list
+	containedMutex.RUnlock()
 }

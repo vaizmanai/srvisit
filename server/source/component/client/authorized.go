@@ -9,7 +9,7 @@ var (
 	//держим список авторизованных клиентов в определенный профиль
 	//authorized[email] = map[Client.Pid]*Client
 	authorized      map[string]map[string]*Client
-	authorizedMutex sync.Mutex
+	authorizedMutex sync.RWMutex
 )
 
 func init() {
@@ -37,19 +37,23 @@ func DelAuthorizedClient(email string, client *Client) {
 
 func GetAuthorizedClientList(email string) []*Client {
 	var list []*Client
+	authorizedMutex.RLock()
 	for _, client := range authorized[email] {
 		list = append(list, client)
 	}
+	authorizedMutex.RUnlock()
 	return list
 }
 
 //возварщает список всех клиентов, для теста
 func getContainedAllClientList() []*Client {
 	var list []*Client
+	authorizedMutex.RLock()
 	for _, client := range authorized {
 		for _, item := range client {
 			list = append(list, item)
 		}
 	}
+	authorizedMutex.RUnlock()
 	return list
 }
