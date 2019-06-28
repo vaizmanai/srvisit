@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"net"
 	"testing"
+	"time"
 )
 
 func init() {
@@ -28,6 +29,12 @@ func TestVersionProcessing(t *testing.T) {
 
 	c.Version = "0.0"
 	var testClient net.Conn = TestClient{}
+	require.True(t, testClient.SetDeadline(time.Now()) == nil)
+	require.True(t, testClient.SetReadDeadline(time.Now()) == nil)
+	require.True(t, testClient.SetWriteDeadline(time.Now()) == nil)
+	require.True(t, testClient.Close() == nil)
+	testClient.(TestClient).Error("test client")
+	require.True(t, testClient.(TestClient).Check() == false)
 
 	processAuth(createMessage(TMESS_AUTH, "0"), &testClient, &c, "TEST")
 	require.True(t, testClient.(TestClient).Check()) //todo переделать на проверку возврата error
@@ -55,7 +62,7 @@ func TestVersionProcessing(t *testing.T) {
 
 	processPing(createMessage(TMESS_PING), &testClient, &c, "TEST")
 	require.True(t, testClient.(TestClient).Check())
-	
+
 	processDisconnect(createMessage(TMESS_DISCONNECT, ""), &testClient, &c, "TEST")
 	require.True(t, testClient.(TestClient).Check()) //todo переделать на проверку возврата error
 
