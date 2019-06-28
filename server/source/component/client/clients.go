@@ -4,6 +4,7 @@ import (
 	"../../common"
 	. "../profile"
 	"net"
+	"strconv"
 	"sync"
 )
 
@@ -109,4 +110,14 @@ func (client *Client) Coordinates() [2]float64 {
 
 func (client *Client) SetCoordinates(coordinate [2]float64) {
 	client.coordinates = coordinate
+}
+
+func (client *Client) GreaterVersionThan(version float64) bool {
+
+	peerVersion, err := strconv.ParseFloat(client.Version, 64)
+	if err != nil || peerVersion <= version {
+		return false
+	}
+
+	return true
 }

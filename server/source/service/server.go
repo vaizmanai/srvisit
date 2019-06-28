@@ -310,7 +310,7 @@ func checkConnection(connection *dConn, code string) {
 		if connection.node == nil && connection.pointer[0] == nil && connection.pointer[1] == nil {
 			LogAdd(MessError, "таймаут ожидания соединений для "+code)
 			if connection.client != nil {
-				if greaterVersionThan(connection.client, MinimalVersionForStaticAlert) {
+				if connection.client.GreaterVersionThan(MinimalVersionForStaticAlert) {
 					sendMessage(connection.client.Conn, TMESS_STANDART_ALERT, fmt.Sprint(StaticMessageTimeoutError))
 				}
 			}

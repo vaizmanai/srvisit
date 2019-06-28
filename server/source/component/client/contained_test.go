@@ -44,5 +44,7 @@ func TestContainedStatic(t *testing.T) {
 		<-done
 	}
 
+	DelContainedProfile("000:000:000", &Profile{})
+
 	require.True(t, len(getContainedAllProfileList()) == (countItem-1)*countThread)
 }

@@ -48,6 +48,8 @@ func TestAuthorizedStatic(t *testing.T) {
 		<-done
 	}
 
+	DelAuthorizedClient("root@mail.net", &Client{})
+
 	require.True(t, len(GetAuthorizedClientList("example@mail.com")) == countItem-1)
 
 	require.True(t, len(getContainedAllClientList()) == countItem*countThread-countThread)
