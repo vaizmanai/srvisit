@@ -26,23 +26,23 @@ func (t TestAddr) String() string {
 }
 
 type TestClient struct {
-	countError  int
+	CountError  int
 	lastMessage string
 
 	TestConnectCode string
 }
 
-func (client TestClient) ResetError() {
-	client.countError = 0
+func (client *TestClient) ResetError() {
+	client.CountError = 0
 }
 
-func (client TestClient) Error(message string) {
-	client.countError++
+func (client *TestClient) Error(message string) {
+	client.CountError++
 	client.lastMessage = message
 }
 
-func (client TestClient) Check() bool {
-	if client.countError > 0 {
+func (client *TestClient) Check() bool {
+	if client.CountError > 0 {
 		fmt.Println("client with error: " + client.lastMessage)
 		client.ResetError()
 		return false

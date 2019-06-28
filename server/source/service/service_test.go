@@ -28,47 +28,48 @@ func TestVersionProcessing(t *testing.T) {
 	//--------------
 
 	c.Version = "0.0"
-	var testClient net.Conn = TestClient{}
+	var testClient net.Conn = &TestClient{}
 	require.True(t, testClient.SetDeadline(time.Now()) == nil)
 	require.True(t, testClient.SetReadDeadline(time.Now()) == nil)
 	require.True(t, testClient.SetWriteDeadline(time.Now()) == nil)
 	require.True(t, testClient.Close() == nil)
-	testClient.(TestClient).Error("test client")
-	require.True(t, testClient.(TestClient).Check() == false)
+	testClient.(*TestClient).Error("test client")
+	require.True(t, testClient.(*TestClient).Check() == false)
+	require.True(t, testClient.LocalAddr() != testClient.RemoteAddr())
 
 	processAuth(createMessage(TMESS_AUTH, "0"), &testClient, &c, "TEST")
-	require.True(t, testClient.(TestClient).Check()) //todo переделать на проверку возврата error
+	require.True(t, testClient.(*TestClient).Check()) //todo переделать на проверку возврата error
 
 	serial := common.RandomString(common.LengthSalt)
 	pid := common.GetPid(serial)
 
 	processAuth(createMessage(TMESS_AUTH, serial), &testClient, &c, "TEST")
-	require.True(t, testClient.(TestClient).Check())
+	require.True(t, testClient.(*TestClient).Check())
 
 	processNotification(createMessage(TMESS_NOTIFICATION, "test notify"), &testClient, &c, "TEST")
-	require.True(t, testClient.(TestClient).Check()) //todo переделать на проверку возврата error
+	require.True(t, testClient.(*TestClient).Check()) //todo переделать на проверку возврата error
 
 	processNotification(createMessage(TMESS_NOTIFICATION, pid, "test notify"), &testClient, &c, "TEST")
-	require.True(t, testClient.(TestClient).Check())
+	require.True(t, testClient.(*TestClient).Check())
 
 	processConnect(createMessage(TMESS_REQUEST, ""), &testClient, &c, "TEST")
-	require.True(t, testClient.(TestClient).Check()) //todo переделать на проверку возврата error
+	require.True(t, testClient.(*TestClient).Check()) //todo переделать на проверку возврата error
 
 	processConnect(createMessage(TMESS_REQUEST, "000:000:000", "salt", "digest", "address"), &testClient, &c, "TEST")
-	require.True(t, testClient.(TestClient).Check()) //todo переделать на проверку возврата error
+	require.True(t, testClient.(*TestClient).Check()) //todo переделать на проверку возврата error
 
 	processConnect(createMessage(TMESS_REQUEST, pid, "salt", "digest", "address"), &testClient, &c, "TEST")
-	require.True(t, testClient.(TestClient).Check())
+	require.True(t, testClient.(*TestClient).Check())
 
 	processPing(createMessage(TMESS_PING), &testClient, &c, "TEST")
-	require.True(t, testClient.(TestClient).Check())
+	require.True(t, testClient.(*TestClient).Check())
 
 	processDisconnect(createMessage(TMESS_DISCONNECT, ""), &testClient, &c, "TEST")
-	require.True(t, testClient.(TestClient).Check()) //todo переделать на проверку возврата error
+	require.True(t, testClient.(*TestClient).Check()) //todo переделать на проверку возврата error
 
 	processConnect(createMessage(TMESS_DISCONNECT, "000:000:000"), &testClient, &c, "TEST")
-	require.True(t, testClient.(TestClient).Check()) //todo переделать на проверку возврата error
+	require.True(t, testClient.(*TestClient).Check()) //todo переделать на проверку возврата error
 
-	processConnect(createMessage(TMESS_DISCONNECT, testClient.(TestClient).TestConnectCode, "0"), &testClient, &c, "TEST")
-	require.True(t, testClient.(TestClient).Check()) //todo переделать на проверку возврата error
+	processConnect(createMessage(TMESS_DISCONNECT, testClient.(*TestClient).TestConnectCode, "0"), &testClient, &c, "TEST")
+	require.True(t, testClient.(*TestClient).Check()) //todo переделать на проверку возврата error
 }
