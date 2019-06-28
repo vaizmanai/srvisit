@@ -33,9 +33,12 @@ func TestVersionProcessing(t *testing.T) {
 	require.True(t, testClient.SetReadDeadline(time.Now()) == nil)
 	require.True(t, testClient.SetWriteDeadline(time.Now()) == nil)
 	require.True(t, testClient.Close() == nil)
+	a, b := testClient.Read([]byte{})
+	require.True(t, a == 0 && b == nil)
 	testClient.(*TestClient).Error("test client")
 	require.True(t, testClient.(*TestClient).Check() == false)
-	require.True(t, testClient.LocalAddr() != testClient.RemoteAddr())
+	require.True(t, testClient.LocalAddr().String() != testClient.RemoteAddr().String())
+	require.True(t, testClient.LocalAddr().Network() != testClient.RemoteAddr().Network())
 
 	processAuth(createMessage(TMESS_AUTH, "0"), &testClient, &c, "TEST")
 	require.True(t, testClient.(*TestClient).Check()) //todo переделать на проверку возврата error
