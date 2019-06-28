@@ -59,7 +59,7 @@ func processAuth(message Message, conn *net.Conn, curClient *Client, id string) 
 
 		//получим координаты по ip
 		go func() {
-			h, _, err := net.SplitHostPort((*(*curClient).Conn).RemoteAddr().String())
+			h, _, err := net.SplitHostPort((*curClient.Conn).RemoteAddr().String())
 			if err == nil {
 				(*curClient).SetCoordinates(GetCoordinatesByYandex(h))
 			}
@@ -75,13 +75,10 @@ func processNotification(message Message, conn *net.Conn, curClient *Client, id 
 		return
 	}
 
+	//todo надо бы как-то защититься от спама
 	list := GetClientsList(message.Messages[0])
-
-	if list != nil {
-		//todo надо бы как-то защититься от спама
-		for _, peer := range list {
-			sendMessage(peer.Conn, TMESS_NOTIFICATION, message.Messages[1])
-		}
+	for _, peer := range list {
+		sendMessage(peer.Conn, TMESS_NOTIFICATION, message.Messages[1])
 	}
 }
 
@@ -106,30 +103,28 @@ func processConnect(message Message, conn *net.Conn, curClient *Client, id strin
 	list := GetClientsList(message.Messages[0])
 
 	successfully := false
-	if list != nil && len(list) != 0 {
-		passDigest := message.Messages[1]
+	passDigest := message.Messages[1]
 
-		//отправим запрос на подключение всем, ответит только тот у кого пароль совпадет
-		for _, peer := range list {
-			code := RandomString(CodeLength)
+	//отправим запрос на подключение всем, ответит только тот у кого пароль совпадет
+	for _, peer := range list {
+		code := RandomString(CodeLength)
 
-			//убедимся что версия клиента поддерживает соединения через агента
-			if !peer.GreaterVersionThan(MinimalVersionForNodes) {
-				address = ""
-			}
-			connectPeers(code, curClient, peer, address)
-
-			LogAdd(MessInfo, id+" запрашиваем коммуникацию у "+fmt.Sprint((*peer.Conn).RemoteAddr())+" для "+code)
-			if !sendMessage(peer.Conn, TMESS_CONNECT, passDigest, salt, code, "simple", "server", curClient.Pid, address) { //тот кто передает трансляцию
-				disconnectPeers(code)
-				LogAdd(MessError, id+" не смогли отправить запрос "+code)
-				if curClient.GreaterVersionThan(MinimalVersionForStaticAlert) {
-					sendMessage(curClient.Conn, TMESS_STANDART_ALERT, fmt.Sprint(StaticMessageNetworkError))
-				}
-			}
-
-			successfully = true
+		//убедимся что версия клиента поддерживает соединения через агента
+		if !peer.GreaterVersionThan(MinimalVersionForNodes) {
+			address = ""
 		}
+		connectPeers(code, curClient, peer, address)
+
+		LogAdd(MessInfo, id+" запрашиваем коммуникацию у "+fmt.Sprint((*peer.Conn).RemoteAddr())+" для "+code)
+		if !sendMessage(peer.Conn, TMESS_CONNECT, passDigest, salt, code, "simple", "server", curClient.Pid, address) { //тот кто передает трансляцию
+			disconnectPeers(code)
+			LogAdd(MessError, id+" не смогли отправить запрос "+code)
+			if curClient.GreaterVersionThan(MinimalVersionForStaticAlert) {
+				sendMessage(curClient.Conn, TMESS_STANDART_ALERT, fmt.Sprint(StaticMessageNetworkError))
+			}
+		}
+
+		successfully = true
 	}
 
 	if successfully {
