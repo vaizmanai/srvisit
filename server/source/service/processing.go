@@ -114,7 +114,7 @@ func processConnect(message Message, conn *net.Conn, curClient *Client, id strin
 			code := RandomString(CodeLength)
 
 			//убедимся что версия клиента поддерживает соединения через агента
-			if !greaterVersionThan(peer, MinimalVersionForNodes) {
+			if !peer.GreaterVersionThan(MinimalVersionForNodes) {
 				address = ""
 			}
 			connectPeers(code, curClient, peer, address)
@@ -123,7 +123,7 @@ func processConnect(message Message, conn *net.Conn, curClient *Client, id strin
 			if !sendMessage(peer.Conn, TMESS_CONNECT, passDigest, salt, code, "simple", "server", curClient.Pid, address) { //тот кто передает трансляцию
 				disconnectPeers(code)
 				LogAdd(MessError, id+" не смогли отправить запрос "+code)
-				if greaterVersionThan(curClient, MinimalVersionForStaticAlert) {
+				if curClient.GreaterVersionThan(MinimalVersionForStaticAlert) {
 					sendMessage(curClient.Conn, TMESS_STANDART_ALERT, fmt.Sprint(StaticMessageNetworkError))
 				}
 			}
@@ -138,7 +138,7 @@ func processConnect(message Message, conn *net.Conn, curClient *Client, id strin
 
 	LogAdd(MessInfo, id+" нет такого пира")
 	sendMessage(curClient.Conn, TMESS_NOTIFICATION, "Нет такого пира") //todo удалить
-	if greaterVersionThan(curClient, MinimalVersionForStaticAlert) {
+	if curClient.GreaterVersionThan(MinimalVersionForStaticAlert) {
 		sendMessage(curClient.Conn, TMESS_STANDART_ALERT, fmt.Sprint(StaticMessageAbsentError))
 	}
 }
@@ -159,7 +159,7 @@ func processDisconnect(message Message, conn *net.Conn, curClient *Client, id st
 			value, exists := channels.Load(code)
 			if exists {
 				peers := value.(*dConn)
-				if greaterVersionThan(peers.client, MinimalVersionForStaticAlert) {
+				if peers.client.GreaterVersionThan(MinimalVersionForStaticAlert) {
 					sendMessage(peers.client.Conn, TMESS_STANDART_ALERT, message.Messages[1])
 				}
 			}
@@ -198,7 +198,7 @@ func processLogin(message Message, conn *net.Conn, curClient *Client, id string)
 
 	LogAdd(MessError, id+" авторизация профиля не успешна")
 	sendMessage(conn, TMESS_NOTIFICATION, "Авторизация профиля провалилась!") //todo удалить
-	if greaterVersionThan(curClient, MinimalVersionForStaticAlert) {
+	if curClient.GreaterVersionThan(MinimalVersionForStaticAlert) {
 		sendMessage(conn, TMESS_STANDART_ALERT, fmt.Sprint(StaticMessageAuthFail))
 	}
 }
@@ -222,7 +222,7 @@ func processReg(message Message, conn *net.Conn, curClient *Client, id string) {
 			if !success {
 				LogAdd(MessError, id+" не удалось отправить письмо с паролем: "+fmt.Sprint(err))
 				sendMessage(conn, TMESS_NOTIFICATION, "Не удалось отправить письмо с паролем!") //todo удалить
-				if greaterVersionThan(curClient, MinimalVersionForStaticAlert) {
+				if curClient.GreaterVersionThan(MinimalVersionForStaticAlert) {
 					sendMessage(conn, TMESS_STANDART_ALERT, fmt.Sprint(StaticMessageRegMail))
 				}
 			}
@@ -232,7 +232,7 @@ func processReg(message Message, conn *net.Conn, curClient *Client, id string) {
 
 		sendMessage(conn, TMESS_REG, "success")
 		sendMessage(conn, TMESS_NOTIFICATION, "Учетная запись создана, Ваш пароль на почте!") //todo удалить
-		if greaterVersionThan(curClient, MinimalVersionForStaticAlert) {
+		if curClient.GreaterVersionThan(MinimalVersionForStaticAlert) {
 			sendMessage(conn, TMESS_STANDART_ALERT, fmt.Sprint(StaticMessageRegSuccessful))
 		}
 		LogAdd(MessInfo, id+" создали учетку")
@@ -242,7 +242,7 @@ func processReg(message Message, conn *net.Conn, curClient *Client, id string) {
 
 		LogAdd(MessInfo, id+" такая учетка уже существует")
 		sendMessage(conn, TMESS_NOTIFICATION, "Такая учетная запись уже существует!") //todo удалить
-		if greaterVersionThan(curClient, MinimalVersionForStaticAlert) {
+		if curClient.GreaterVersionThan(MinimalVersionForStaticAlert) {
 			sendMessage(conn, TMESS_STANDART_ALERT, fmt.Sprint(StaticMessageRegFail))
 		}
 	}
@@ -393,14 +393,14 @@ func processConnectContact(message Message, conn *net.Conn, curClient *Client, i
 		} else {
 			LogAdd(MessError, id+" нет такого контакта в профиле")
 			sendMessage(conn, TMESS_NOTIFICATION, "Нет такого контакта в профиле!") //todo удалить
-			if greaterVersionThan(curClient, MinimalVersionForStaticAlert) {
+			if curClient.GreaterVersionThan(MinimalVersionForStaticAlert) {
 				sendMessage(conn, TMESS_STANDART_ALERT, fmt.Sprint(StaticMessageAbsentError))
 			}
 		}
 	} else {
 		LogAdd(MessError, id+" ошибка преобразования идентификатора")
 		sendMessage(conn, TMESS_NOTIFICATION, "Ошибка преобразования идентификатора!") //todo удалить
-		if greaterVersionThan(curClient, MinimalVersionForStaticAlert) {
+		if curClient.GreaterVersionThan(MinimalVersionForStaticAlert) {
 			sendMessage(conn, TMESS_STANDART_ALERT, fmt.Sprint(StaticMessageAbsentError))
 		}
 	}
@@ -471,21 +471,21 @@ func processInfoContact(message Message, conn *net.Conn, curClient *Client, id s
 			} else {
 				LogAdd(MessError, id+" нет такого контакта в сети")
 				sendMessage(conn, TMESS_NOTIFICATION, "Нет такого контакта в сети!") //todo удалить
-				if greaterVersionThan(curClient, MinimalVersionForStaticAlert) {
+				if curClient.GreaterVersionThan(MinimalVersionForStaticAlert) {
 					sendMessage(conn, TMESS_STANDART_ALERT, fmt.Sprint(StaticMessageAbsentError))
 				}
 			}
 		} else {
 			LogAdd(MessError, id+" нет такого контакта в профиле")
 			sendMessage(conn, TMESS_NOTIFICATION, "Нет такого контакта в профиле!") //todo удалить
-			if greaterVersionThan(curClient, MinimalVersionForStaticAlert) {
+			if curClient.GreaterVersionThan(MinimalVersionForStaticAlert) {
 				sendMessage(conn, TMESS_STANDART_ALERT, fmt.Sprint(StaticMessageAbsentError))
 			}
 		}
 	} else {
 		LogAdd(MessError, id+" ошибка преобразования идентификатора")
 		sendMessage(conn, TMESS_NOTIFICATION, "Ошибка преобразования идентификатора!") //todo удалить
-		if greaterVersionThan(curClient, MinimalVersionForStaticAlert) {
+		if curClient.GreaterVersionThan(MinimalVersionForStaticAlert) {
 			sendMessage(conn, TMESS_STANDART_ALERT, fmt.Sprint(StaticMessageAbsentError))
 		}
 	}
@@ -513,7 +513,7 @@ func processInfoAnswer(message Message, conn *net.Conn, curClient *Client, id st
 	} else {
 		LogAdd(MessError, id+" нет такого контакта в сети")
 		sendMessage(conn, TMESS_NOTIFICATION, "Нет такого контакта в сети!") //todo удалить
-		if greaterVersionThan(curClient, MinimalVersionForStaticAlert) {
+		if curClient.GreaterVersionThan(MinimalVersionForStaticAlert) {
 			sendMessage(conn, TMESS_STANDART_ALERT, fmt.Sprint(StaticMessageAbsentError))
 		}
 	}
@@ -548,21 +548,21 @@ func processManage(message Message, conn *net.Conn, curClient *Client, id string
 			} else {
 				LogAdd(MessError, id+" нет такого контакта в сети")
 				sendMessage(conn, TMESS_NOTIFICATION, "Нет такого контакта в сети!") //todo удалить
-				if greaterVersionThan(curClient, MinimalVersionForStaticAlert) {
+				if curClient.GreaterVersionThan(MinimalVersionForStaticAlert) {
 					sendMessage(conn, TMESS_STANDART_ALERT, fmt.Sprint(StaticMessageAbsentError))
 				}
 			}
 		} else {
 			LogAdd(MessError, id+" нет такого контакта в профиле")
 			sendMessage(conn, TMESS_NOTIFICATION, "Нет такого контакта в профиле!") //todo удалить
-			if greaterVersionThan(curClient, MinimalVersionForStaticAlert) {
+			if curClient.GreaterVersionThan(MinimalVersionForStaticAlert) {
 				sendMessage(conn, TMESS_STANDART_ALERT, fmt.Sprint(StaticMessageAbsentError))
 			}
 		}
 	} else {
 		LogAdd(MessError, id+" ошибка преобразования идентификатора")
 		sendMessage(conn, TMESS_NOTIFICATION, "Ошибка преобразования идентификатора!") //todo удалить
-		if greaterVersionThan(curClient, MinimalVersionForStaticAlert) {
+		if curClient.GreaterVersionThan(MinimalVersionForStaticAlert) {
 			sendMessage(conn, TMESS_STANDART_ALERT, fmt.Sprint(StaticMessageAbsentError))
 		}
 	}
@@ -615,7 +615,7 @@ func processContactReverse(message Message, conn *net.Conn, curClient *Client, i
 
 func processServers(message Message, conn *net.Conn, curClient *Client, id string) {
 	//убедимся что версия клиента поддерживает соединения через агента
-	if !greaterVersionThan(curClient, MinimalVersionForNodes) {
+	if !curClient.GreaterVersionThan(MinimalVersionForNodes) {
 		return
 	}
 

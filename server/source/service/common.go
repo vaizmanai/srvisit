@@ -10,7 +10,6 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
-	"strconv"
 	"sync"
 	"time"
 )
@@ -218,16 +217,6 @@ func HelperThread() {
 		time.Sleep(time.Second * WaitHelperCycle)
 	}
 	LogAdd(MessInfo, "helperThread закончил работу")
-}
-
-func greaterVersionThan(client *Client, version float64) bool {
-
-	peerVersion, err := strconv.ParseFloat(client.Version, 64)
-	if err != nil || peerVersion < version {
-		return false
-	}
-
-	return true
 }
 
 //пробежимся по профилям, найдем где есть контакты с нашим пид и добавим этот профиль нам

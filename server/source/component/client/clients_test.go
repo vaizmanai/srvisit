@@ -59,3 +59,15 @@ func TestBasicClient(t *testing.T) {
 
 	require.True(t, len(GetAllClientsList()) == countThread*countItem-countItem)
 }
+
+func TestVersionClient(t *testing.T) {
+	client := Client{Serial: common.RandomString(common.CodeLength), Pass: "12345", Version: "1.0"}
+
+	require.True(t, client.GreaterVersionThan(1.1) == false)
+	require.True(t, client.GreaterVersionThan(1.0) == false)
+	require.True(t, client.GreaterVersionThan(0.0) == true)
+	require.True(t, client.GreaterVersionThan(0.9) == true)
+
+	client1 := Client{Serial: common.RandomString(common.CodeLength), Pass: "12345", Version: "a1.0"}
+	require.True(t, client1.GreaterVersionThan(0.0) == false)
+}
