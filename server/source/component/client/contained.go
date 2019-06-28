@@ -48,9 +48,8 @@ func GetContainedProfileList(pid string) []*Profile {
 	for _, profile := range contained[pid] {
 		list = append(list, profile)
 	}
-
-	return list
 	containedMutex.RUnlock()
+	return list
 }
 
 //возварщает список всех профилей, для теста
@@ -62,6 +61,6 @@ func getContainedAllProfileList() []*Profile {
 			list = append(list, item)
 		}
 	}
-	return list
 	containedMutex.RUnlock()
+	return list
 }
