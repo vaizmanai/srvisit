@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/stretchr/testify/require"
 	"net"
+	"sync"
 	"testing"
 	"time"
 )
@@ -123,7 +124,7 @@ func init() {
 	//common.Options.Mode = common.ModeMaster
 }
 
-func TestVersionProcessing(t *testing.T) {
+func TestStaticProcessing(t *testing.T) {
 	c := client.Client{Serial: common.RandomString(common.CodeLength), Pass: "12345", Version: "1.0"}
 
 	//--------------
@@ -184,4 +185,57 @@ func TestVersionProcessing(t *testing.T) {
 
 	processConnect(createMessage(TMESS_DISCONNECT, testClient.(*TestClient).TestConnectCode, "0"), &testClient, &c, "TEST")
 	require.True(t, testClient.(*TestClient).Check()) //todo переделать на проверку возврата error
+}
+
+func creationClient() bool {
+	serial := common.RandomString(common.LengthSalt)
+
+	time.Sleep(time.Duration(common.RandInt(0, 5)) * time.Second)
+
+	conn, err := net.Dial("tcp", "127.0.0.1:"+common.Options.MainServerPort)
+	if err != nil {
+		fmt.Println(err.Error())
+		return false
+	}
+
+	if !sendMessage(&conn, TMESS_AUTH, serial) {
+		return false
+	}
+	
+	//todo read response
+
+	time.Sleep(time.Duration(common.RandInt(0, 10)) * time.Second)
+
+	return true
+}
+
+func TestThreadClient(t *testing.T) {
+
+	countThread := 100
+	done := make(chan bool)
+
+	go MainServer()
+
+	fail := false
+	var mutex sync.Mutex
+
+	for i := 0; i < countThread; i++ {
+
+		go func(n int) {
+			r := creationClient()
+			if !r {
+				mutex.Lock()
+				fail = true
+				mutex.Unlock()
+			}
+			done <- true
+		}(i)
+
+	}
+
+	for i := 0; i < countThread; i++ {
+		<-done
+	}
+
+	require.True(t, fail == false)
 }
