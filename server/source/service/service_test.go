@@ -197,6 +197,8 @@ func TestStaticProcessing(t *testing.T) {
 	require.True(t, testClient.LocalAddr().String() != testClient.RemoteAddr().String())
 	require.True(t, testClient.LocalAddr().Network() != testClient.RemoteAddr().Network())
 
+	time.Sleep(time.Second) //чтобы избежать гонку для заглушки клиента
+
 	processAuth(createMessage(TMESS_AUTH, "0"), &testClient, &c, "TEST1")
 	require.True(t, testClient.(*TestClient).Check()) //todo переделать на проверку возврата error
 	require.True(t, testClient.(*TestClient).DeAuthSuccess == true)
