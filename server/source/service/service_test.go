@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"net"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -34,10 +35,9 @@ func (t TestAddr) String() string {
 type TestClient struct {
 	CountError  int
 	lastMessage string
-
-	TestConnectCode string
-
+	mutex       sync.RWMutex
 	//-----
+	TestConnectCode string
 
 	AuthSuccess         bool
 	PingSuccess         bool
@@ -146,11 +146,15 @@ func (TestClient) Close() error {
 	return nil
 }
 
-func (TestClient) LocalAddr() net.Addr {
+func (client *TestClient) LocalAddr() net.Addr {
+	client.mutex.RLock()
+	defer client.mutex.RUnlock()
 	return TestAddr{local: true}
 }
 
-func (TestClient) RemoteAddr() net.Addr {
+func (client *TestClient) RemoteAddr() net.Addr {
+	client.mutex.RLock()
+	defer client.mutex.RUnlock()
 	return TestAddr{local: false}
 }
 
@@ -191,13 +195,13 @@ func TestStaticProcessing(t *testing.T) {
 	require.True(t, testClient.SetWriteDeadline(time.Now()) == nil)
 	require.True(t, testClient.Close() == nil)
 	a, b := testClient.Read([]byte{})
+	c.Conn = &testClient
+
 	require.True(t, a == 0 && b == nil)
 	testClient.(*TestClient).Error("test client")
 	require.True(t, testClient.(*TestClient).Check() == false)
 	require.True(t, testClient.LocalAddr().String() != testClient.RemoteAddr().String())
 	require.True(t, testClient.LocalAddr().Network() != testClient.RemoteAddr().Network())
-
-	time.Sleep(time.Second) //чтобы избежать гонку для заглушки клиента
 
 	processAuth(createMessage(TMESS_AUTH, "0"), &testClient, &c, "TEST1")
 	require.True(t, testClient.(*TestClient).Check()) //todo переделать на проверку возврата error
