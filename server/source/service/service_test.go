@@ -451,6 +451,83 @@ func testProfile(t *testing.T, testClient net.Conn, c client.Client, email strin
 	require.True(t, testClient.(*TestClient).Check())
 	require.True(t, len(client.GetAuthorizedClientList(email)) == 0)
 	require.True(t, r == true)
+
+	//--------
+
+	//мало полей
+	r = processConnectContact(createMessage(TMESS_CONNECT_CONTACT), &testClient, &c, "TEST1")
+	require.True(t, testClient.(*TestClient).Check())
+	require.True(t, r == false)
+
+	//не авторизованный профиль
+	r = processConnectContact(createMessage(TMESS_CONNECT_CONTACT, "1"), &testClient, &c, "TEST2")
+	require.True(t, testClient.(*TestClient).Check())
+	require.True(t, r == false)
+
+	//--------
+
+	//не правильное кол-во аргументов
+	r = processStatuses(createMessage(TMESS_STATUSES, "1"), &testClient, &c, "TEST1")
+	require.True(t, testClient.(*TestClient).Check())
+	require.True(t, r == false)
+
+	//не авторизованный профиль
+	r = processStatuses(createMessage(TMESS_STATUSES), &testClient, &c, "TEST2")
+	require.True(t, testClient.(*TestClient).Check())
+	require.True(t, r == false)
+
+	//--------
+
+	//не правильное кол-во аргументов
+	r = processStatus(createMessage(TMESS_STATUS), &testClient, &c, "TEST1")
+	require.True(t, testClient.(*TestClient).Check())
+	require.True(t, r == false)
+
+	//не авторизованный профиль
+	r = processStatus(createMessage(TMESS_STATUS, "1"), &testClient, &c, "TEST2")
+	require.True(t, testClient.(*TestClient).Check())
+	require.True(t, r == false)
+
+	//пустой индекс
+	//r = processStatus(createMessage(TMESS_STATUS, ""), &testClient, &c, "TEST3")
+	//require.True(t, testClient.(*TestClient).Check())
+	//require.True(t, r == false)
+
+	//--------
+
+	//не правильное кол-во аргументов
+	r = processInfoContact(createMessage(TMESS_INFO_CONTACT), &testClient, &c, "TEST1")
+	require.True(t, testClient.(*TestClient).Check())
+	require.True(t, r == false)
+
+	//не авторизованный профиль
+	r = processInfoContact(createMessage(TMESS_INFO_CONTACT, "1"), &testClient, &c, "TEST2")
+	require.True(t, testClient.(*TestClient).Check())
+	require.True(t, r == false)
+
+	//--------
+
+	//не правильное кол-во аргументов
+	r = processManage(createMessage(TMESS_MANAGE), &testClient, &c, "TEST1")
+	require.True(t, testClient.(*TestClient).Check())
+	require.True(t, r == false)
+
+	//не авторизованный профиль
+	r = processManage(createMessage(TMESS_MANAGE, "1", "2"), &testClient, &c, "TEST2")
+	require.True(t, testClient.(*TestClient).Check())
+	require.True(t, r == false)
+
+	//--------
+
+	//не правильное кол-во аргументов
+	r = processContactReverse(createMessage(TMESS_CONTACT_REVERSE), &testClient, &c, "TEST1")
+	require.True(t, testClient.(*TestClient).Check())
+	require.True(t, r == false)
+
+	//не авторизованный профиль
+	r = processContactReverse(createMessage(TMESS_CONTACT_REVERSE, "1", "2", "3"), &testClient, &c, "TEST2")
+	require.True(t, testClient.(*TestClient).Check())
+	require.True(t, r == false)
 }
 
 func creationClient() bool {

@@ -331,10 +331,8 @@ func processContact(message Message, conn *net.Conn, curClient *Client, id strin
 
 			//если такой пид онлайн - добавить наш профиль туда
 			list := GetClientsList(message.Messages[3])
-			if list != nil {
-				for _, peer := range list {
-					AddContainedProfile(peer.Pid, profile)
-				}
+			for _, peer := range list {
+				AddContainedProfile(peer.Pid, profile)
 			}
 
 			if len(c.Pid) > 0 {
