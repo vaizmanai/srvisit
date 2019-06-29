@@ -192,9 +192,10 @@ func processLogin(message Message, conn *net.Conn, curClient *Client, id string)
 	}
 
 	LogAdd(MessError, id+" авторизация профиля не успешна")
-	sendMessage(conn, TMESS_NOTIFICATION, "Авторизация профиля провалилась!") //todo удалить
 	if curClient.GreaterVersionThan(MinimalVersionForStaticAlert) {
 		sendMessage(conn, TMESS_STANDART_ALERT, fmt.Sprint(StaticMessageAuthFail))
+	} else {
+		sendMessage(conn, TMESS_NOTIFICATION, "Авторизация профиля провалилась!") //todo удалить
 	}
 }
 
@@ -216,9 +217,10 @@ func processReg(message Message, conn *net.Conn, curClient *Client, id string) {
 			success, err := SendEmail(message.Messages[0], msg)
 			if !success {
 				LogAdd(MessError, id+" не удалось отправить письмо с паролем: "+fmt.Sprint(err))
-				sendMessage(conn, TMESS_NOTIFICATION, "Не удалось отправить письмо с паролем!") //todo удалить
 				if curClient.GreaterVersionThan(MinimalVersionForStaticAlert) {
 					sendMessage(conn, TMESS_STANDART_ALERT, fmt.Sprint(StaticMessageRegMail))
+				} else {
+					sendMessage(conn, TMESS_NOTIFICATION, "Не удалось отправить письмо с паролем!") //todo удалить
 				}
 			}
 		} else {
@@ -226,9 +228,10 @@ func processReg(message Message, conn *net.Conn, curClient *Client, id string) {
 		}
 
 		sendMessage(conn, TMESS_REG, "success")
-		sendMessage(conn, TMESS_NOTIFICATION, "Учетная запись создана, Ваш пароль на почте!") //todo удалить
 		if curClient.GreaterVersionThan(MinimalVersionForStaticAlert) {
 			sendMessage(conn, TMESS_STANDART_ALERT, fmt.Sprint(StaticMessageRegSuccessful))
+		} else {
+			sendMessage(conn, TMESS_NOTIFICATION, "Учетная запись создана, Ваш пароль на почте!") //todo удалить
 		}
 		LogAdd(MessInfo, id+" создали учетку")
 
@@ -236,9 +239,10 @@ func processReg(message Message, conn *net.Conn, curClient *Client, id string) {
 		//todo восстановление пароля
 
 		LogAdd(MessInfo, id+" такая учетка уже существует")
-		sendMessage(conn, TMESS_NOTIFICATION, "Такая учетная запись уже существует!") //todo удалить
 		if curClient.GreaterVersionThan(MinimalVersionForStaticAlert) {
 			sendMessage(conn, TMESS_STANDART_ALERT, fmt.Sprint(StaticMessageRegFail))
+		} else {
+			sendMessage(conn, TMESS_NOTIFICATION, "Такая учетная запись уже существует!") //todo удалить
 		}
 	}
 
