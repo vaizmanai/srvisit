@@ -29,6 +29,7 @@ type Client struct {
 	Code string //for connection
 
 	coordinates [2]float64
+	mutex       sync.RWMutex
 }
 
 func init() {
@@ -105,15 +106,20 @@ func GetAllClientsList() []*Client {
 }
 
 func (client *Client) Coordinates() [2]float64 {
+	client.mutex.RLock()
+	defer client.mutex.RUnlock()
 	return client.coordinates
 }
 
 func (client *Client) SetCoordinates(coordinate [2]float64) {
+	client.mutex.Lock()
 	client.coordinates = coordinate
+	client.mutex.Unlock()
 }
 
 func (client *Client) GreaterVersionThan(version float64) bool {
-
+	client.mutex.RLock()
+	defer client.mutex.RUnlock()
 	peerVersion, err := strconv.ParseFloat(client.Version, 64)
 	if err != nil || peerVersion <= version {
 		return false
