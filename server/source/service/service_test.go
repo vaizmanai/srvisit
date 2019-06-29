@@ -584,6 +584,8 @@ func testThreadClient(t *testing.T) {
 
 	go MainServer()
 
+	time.Sleep(time.Second)
+	
 	fail := false
 	var mutex sync.Mutex
 
