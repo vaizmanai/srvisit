@@ -584,6 +584,7 @@ func testThreadClient(t *testing.T) {
 
 	go MainServer()
 	go DataServer()
+	go HttpServer()
 
 	time.Sleep(time.Second)
 
