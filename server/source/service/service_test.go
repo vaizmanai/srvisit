@@ -451,6 +451,11 @@ func testProfile(t *testing.T, testClient net.Conn, c client.Client, email strin
 
 	//--------
 
+	//пустой индекс
+	r = processStatuses(createMessage(TMESS_STATUSES, ""), &testClient, &c, "TEST2")
+	require.True(t, testClient.(*TestClient).Check())
+	require.True(t, r == false)
+
 	r = processLogout(createMessage(TMESS_LOGOUT), &testClient, &c, "TEST1")
 	require.True(t, testClient.(*TestClient).Check())
 	require.True(t, len(client.GetAuthorizedClientList(email)) == 0)
@@ -532,6 +537,21 @@ func testProfile(t *testing.T, testClient net.Conn, c client.Client, email strin
 	r = processContactReverse(createMessage(TMESS_CONTACT_REVERSE, "1", "2", "3"), &testClient, &c, "TEST2")
 	require.True(t, testClient.(*TestClient).Check())
 	require.True(t, r == false)
+
+	//--------
+
+	//не правильное кол-во аргументов
+	r = processInfoAnswer(createMessage(TMESS_INFO_ANSWER), &testClient, &c, "TEST1")
+	require.True(t, testClient.(*TestClient).Check())
+	require.True(t, r == false)
+
+	//--------
+
+	//при ModeRegular у нас так и так должен возвращаться false
+	r = processServers(createMessage(TMESS_SERVERS), &testClient, &c, "TEST1")
+	require.True(t, testClient.(*TestClient).Check())
+	require.True(t, r == false)
+
 }
 
 func creationClient() bool {
