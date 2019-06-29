@@ -38,6 +38,7 @@ type TestClient struct {
 	mutex       sync.RWMutex
 	//-----
 	TestConnectCode string
+	TestContactId   string
 
 	AuthSuccess         bool
 	PingSuccess         bool
@@ -87,7 +88,9 @@ func (client *TestClient) Write(b []byte) (n int, err error) {
 		client.Error(err.Error())
 		return len(b), err
 	}
-	fmt.Println(message.TMessage)
+
+	fmt.Println("it's message type: " + fmt.Sprint(message.TMessage))
+
 	if message.TMessage == TMESS_AUTH {
 		fmt.Println("client got auth message")
 		if len(message.Messages) != 3 {
@@ -131,6 +134,7 @@ func (client *TestClient) Write(b []byte) (n int, err error) {
 		client.ContactsSuccess = true
 	} else if message.TMessage == TMESS_CONTACT {
 		//client.ContactsSuccess = true
+		client.TestContactId = message.Messages[0]
 	} else if message.TMessage == TMESS_STATUS {
 		//client.ContactsSuccess = true
 	} else if message.TMessage == TMESS_DEAUTH {
@@ -183,8 +187,9 @@ func TestStaticProcessing(t *testing.T) {
 	processVersion(createMessage(TMESS_VERSION, "2.0"), nil, &c, "TEST")
 	require.True(t, c.Version == "2.0")
 
-	processVersion(createMessage(TMESS_VERSION, "3.0", "123"), nil, &c, "TEST") //wrong arg count
+	r := processVersion(createMessage(TMESS_VERSION, "3.0", "123"), nil, &c, "TEST") //wrong arg count
 	require.True(t, c.Version == "2.0")
+	require.True(t, r == false)
 
 	//--------------
 
@@ -203,109 +208,218 @@ func TestStaticProcessing(t *testing.T) {
 	require.True(t, testClient.LocalAddr().String() != testClient.RemoteAddr().String())
 	require.True(t, testClient.LocalAddr().Network() != testClient.RemoteAddr().Network())
 
-	processAuth(createMessage(TMESS_AUTH), &testClient, &c, "TEST1")
-	require.True(t, testClient.(*TestClient).Check()) //todo переделать на проверку возврата error
+	r = processAuth(createMessage(TMESS_AUTH), &testClient, &c, "TEST1")
+	require.True(t, testClient.(*TestClient).Check())
+	require.True(t, r == false)
 
-	processAuth(createMessage(TMESS_AUTH, "0"), &testClient, &c, "TEST1")
+	r = processAuth(createMessage(TMESS_AUTH, "0"), &testClient, &c, "TEST1")
 	require.True(t, testClient.(*TestClient).Check()) //todo переделать на проверку возврата error
 	require.True(t, testClient.(*TestClient).DeAuthSuccess == true)
+	require.True(t, r == false)
 
 	serial := common.RandomString(common.LengthSalt)
 	pid := common.GetPid(serial)
 
-	processAuth(createMessage(TMESS_AUTH, serial), &testClient, &c, "TEST2")
+	r = processAuth(createMessage(TMESS_AUTH, serial), &testClient, &c, "TEST2")
 	require.True(t, testClient.(*TestClient).Check())
 	require.True(t, testClient.(*TestClient).AuthSuccess == true)
 
-	processNotification(createMessage(TMESS_NOTIFICATION, "test notify"), &testClient, &c, "TEST1")
+	r = processNotification(createMessage(TMESS_NOTIFICATION, "test notify"), &testClient, &c, "TEST1")
 	require.True(t, testClient.(*TestClient).Check())
 	require.True(t, testClient.(*TestClient).NotificationSuccess == false)
+	require.True(t, r == false)
 
-	processNotification(createMessage(TMESS_NOTIFICATION, pid, "test notify"), &testClient, &c, "TEST2")
+	r = processNotification(createMessage(TMESS_NOTIFICATION, pid, "test notify"), &testClient, &c, "TEST2")
 	require.True(t, testClient.(*TestClient).Check())
 	require.True(t, testClient.(*TestClient).NotificationSuccess == true)
+	require.True(t, r == true)
 
-	processConnect(createMessage(TMESS_REQUEST, ""), &testClient, &c, "TEST1")
-	require.True(t, testClient.(*TestClient).Check()) //todo переделать на проверку возврата error
+	r = processConnect(createMessage(TMESS_REQUEST, ""), &testClient, &c, "TEST1")
+	require.True(t, testClient.(*TestClient).Check())
 	require.True(t, testClient.(*TestClient).ReqSuccess == false)
+	require.True(t, r == false)
 
-	processConnect(createMessage(TMESS_REQUEST, "000:000:000", "salt", "digest", "address"), &testClient, &c, "TEST2")
-	require.True(t, testClient.(*TestClient).Check()) //todo переделать на проверку возврата error
+	r = processConnect(createMessage(TMESS_REQUEST, "000:000:000", "salt", "digest", "address"), &testClient, &c, "TEST2")
+	require.True(t, testClient.(*TestClient).Check())
 	require.True(t, testClient.(*TestClient).ReqSuccess == false)
+	require.True(t, r == false)
 
-	processConnect(createMessage(TMESS_REQUEST, pid, "salt", "digest", "address"), &testClient, &c, "TEST3")
+	r = processConnect(createMessage(TMESS_REQUEST, pid, "salt", "digest", "address"), &testClient, &c, "TEST3")
 	require.True(t, testClient.(*TestClient).Check())
 	require.True(t, testClient.(*TestClient).ReqSuccess == true)
+	require.True(t, r == true)
 
-	processPing(createMessage(TMESS_PING), &testClient, &c, "TEST") //сервер ничего не отвечает на пинг
+	r = processPing(createMessage(TMESS_PING), &testClient, &c, "TEST") //сервер ничего не отвечает на пинг
 	require.True(t, testClient.(*TestClient).Check())
+	require.True(t, r == true)
 
-	processDisconnect(createMessage(TMESS_DISCONNECT, ""), &testClient, &c, "TEST1")
-	require.True(t, testClient.(*TestClient).Check()) //todo переделать на проверку возврата error
+	r = processDisconnect(createMessage(TMESS_DISCONNECT), &testClient, &c, "TEST1")
+	require.True(t, testClient.(*TestClient).Check())
+	require.True(t, r == false)
 
-	processConnect(createMessage(TMESS_DISCONNECT, "000:000:000"), &testClient, &c, "TEST2")
-	require.True(t, testClient.(*TestClient).Check()) //todo переделать на проверку возврата error
+	r = processDisconnect(createMessage(TMESS_DISCONNECT, ""), &testClient, &c, "TEST2")
+	require.True(t, testClient.(*TestClient).Check())
+	require.True(t, r == false)
 
-	processConnect(createMessage(TMESS_DISCONNECT, testClient.(*TestClient).TestConnectCode, "0"), &testClient, &c, "TEST3")
-	require.True(t, testClient.(*TestClient).Check()) //todo переделать на проверку возврата error
+	r = processDisconnect(createMessage(TMESS_DISCONNECT, "000:000:000"), &testClient, &c, "TEST3")
+	require.True(t, testClient.(*TestClient).Check())
+	require.True(t, r == true) //пробует отключить, то что нет такого соединения не считаем ошибкой
 
-	processReg(createMessage(TMESS_REG), &testClient, &c, "TEST")
+	r = processDisconnect(createMessage(TMESS_DISCONNECT, testClient.(*TestClient).TestConnectCode, "0"), &testClient, &c, "TEST4")
+	require.True(t, testClient.(*TestClient).Check())
+	require.True(t, r == true)
+
+	r = processReg(createMessage(TMESS_REG), &testClient, &c, "TEST")
 	require.True(t, testClient.(*TestClient).Check())
 	require.True(t, testClient.(*TestClient).RegSuccess == false)
+	require.True(t, r == false)
 
 	email := strings.ToLower(common.RandomString(common.LengthSalt) + "@mail.net")
-	processReg(createMessage(TMESS_REG, email), &testClient, &c, "TEST")
+	r = processReg(createMessage(TMESS_REG, email), &testClient, &c, "TEST")
 	require.True(t, testClient.(*TestClient).Check())
 	require.True(t, testClient.(*TestClient).RegSuccess == true)
 	p := profile.GetProfile(email)
 	require.True(t, p != nil)
 	require.True(t, p.Pass == common.PredefinedPass)
+	require.True(t, r == true)
 
-	processLogin(createMessage(TMESS_LOGIN), &testClient, &c, "TEST1")
-	require.True(t, testClient.(*TestClient).Check()) //todo переделать на проверку возврата error
+	r = processLogin(createMessage(TMESS_LOGIN), &testClient, &c, "TEST1")
+	require.True(t, testClient.(*TestClient).Check())
 	require.True(t, testClient.(*TestClient).LoginSuccess == false)
+	require.True(t, r == false)
 
-	processLogin(createMessage(TMESS_LOGIN, "root@mail.net", "password"), &testClient, &c, "TEST2")
-	require.True(t, testClient.(*TestClient).Check()) //todo переделать на проверку возврата error
+	r = processLogin(createMessage(TMESS_LOGIN, "root@mail.net", "password"), &testClient, &c, "TEST2")
+	require.True(t, testClient.(*TestClient).Check())
 	require.True(t, testClient.(*TestClient).LoginSuccess == false)
+	require.True(t, r == true)
 
-	processLogin(createMessage(TMESS_LOGIN, email, common.GetSHA256(common.PredefinedPass+c.Salt)), &testClient, &c, "TEST3")
-	require.True(t, testClient.(*TestClient).Check()) //todo переделать на проверку возврата error
+	r = processLogin(createMessage(TMESS_LOGIN, email, common.GetSHA256(common.PredefinedPass+c.Salt)), &testClient, &c, "TEST3")
+	require.True(t, testClient.(*TestClient).Check())
 	require.True(t, testClient.(*TestClient).LoginSuccess == true)
 	require.True(t, testClient.(*TestClient).ContactsSuccess == true)
 	require.True(t, len(client.GetAuthorizedClientList(email)) == 1)
+	require.True(t, r == true)
 
-	processLogout(createMessage(TMESS_LOGOUT, email, common.GetSHA256(common.PredefinedPass+c.Salt)), &testClient, &c, "TEST1")
-	require.True(t, testClient.(*TestClient).Check()) //todo переделать на проверку возврата error
+	r = processLogout(createMessage(TMESS_LOGOUT, email, common.GetSHA256(common.PredefinedPass+c.Salt)), &testClient, &c, "TEST1")
+	require.True(t, testClient.(*TestClient).Check())
 	require.True(t, len(client.GetAuthorizedClientList(email)) == 0)
+	require.True(t, r == true)
 
-	processLogout(createMessage(TMESS_LOGOUT, email, common.GetSHA256(common.PredefinedPass+c.Salt)), &testClient, &c, "TEST2")
-	require.True(t, testClient.(*TestClient).Check()) //todo переделать на проверку возврата error
+	r = processLogout(createMessage(TMESS_LOGOUT, email, common.GetSHA256(common.PredefinedPass+c.Salt)), &testClient, &c, "TEST2")
+	require.True(t, testClient.(*TestClient).Check())
 	require.True(t, len(client.GetAuthorizedClientList(email)) == 0)
+	require.True(t, r == false)
+
+	r = processContact(createMessage(TMESS_CONTACT), &testClient, &c, "TEST1")
+	require.True(t, testClient.(*TestClient).Check())
+	require.True(t, r == false)
+
+	r = processContact(createMessage(TMESS_CONTACT, "1", "2", "3", "4", "5", "6"), &testClient, &c, "TEST2")
+	require.True(t, testClient.(*TestClient).Check())
+	require.True(t, r == false)
+
+	r = processLogin(createMessage(TMESS_LOGIN, email, common.GetSHA256(common.PredefinedPass+c.Salt)), &testClient, &c, "TEST3")
+	require.True(t, testClient.(*TestClient).Check())
+	require.True(t, r == true)
+
+	r = processContact(createMessage(TMESS_CONTACT, "a123", "2", "3", "4", "5", "6"), &testClient, &c, "TEST4")
+	require.True(t, testClient.(*TestClient).Check())
+	require.True(t, r == false)
 
 	//--------
-	fmt.Println("!!!!!!!!!!!!!!!!!!!!")
 
-	processContact(createMessage(TMESS_CONTACT), &testClient, &c, "TEST1")
-	require.True(t, testClient.(*TestClient).Check()) //todo переделать на проверку возврата error
+	//создадим структуру контактов
+	//- group1
+	//  - cont1
+	//  - cont2
+	//- group2
+	//  - group3
+	//    - cont3
+	//    - cont4
+	//- group4
+	//- cont5
 
-	processContact(createMessage(TMESS_CONTACT, "1", "2", "3", "4", "5", "6"), &testClient, &c, "TEST2")
-	require.True(t, testClient.(*TestClient).Check()) //todo переделать на проверку возврата error
+	//processContact(createMessage(TMESS_CONTACT, "0", "1", "2", "3", "4", "5"), &testClient, &c, "TEST5")
+	//0 - id
+	//1 - del/type
+	//2 - caption
+	//3 - pid
+	//4 - digest
+	//5 - parent(not necessary)
+	r = processContact(createMessage(TMESS_CONTACT, "-1", "fold", "group1", "", "", ""), &testClient, &c, "TEST5")
+	require.True(t, testClient.(*TestClient).Check())
+	require.True(t, r == true)
+	group1 := testClient.(*TestClient).TestContactId
 
-	processLogin(createMessage(TMESS_LOGIN, email, common.GetSHA256(common.PredefinedPass+c.Salt)), &testClient, &c, "TEST3")
-	require.True(t, testClient.(*TestClient).Check()) //todo переделать на проверку возврата error
+	r = processContact(createMessage(TMESS_CONTACT, "-1", "cont", "cont1", "111:111:111:111", "digest1", group1), &testClient, &c, "TEST5")
+	require.True(t, testClient.(*TestClient).Check())
+	require.True(t, r == true)
 
-	processContact(createMessage(TMESS_CONTACT, "a123", "2", "3", "4", "5", "6"), &testClient, &c, "TEST4")
-	require.True(t, testClient.(*TestClient).Check()) //todo переделать на проверку возврата error
+	r = processContact(createMessage(TMESS_CONTACT, "-1", "cont", "cont2", "222:222:222:222", "digest2", group1), &testClient, &c, "TEST5")
+	require.True(t, testClient.(*TestClient).Check())
+	require.True(t, r == true)
 
-	//1 - id
-	//2 - del/type
-	//3 - caption
-	//4 - pid
-	//5 - digest
-	//6 - parent(not necessary)
-	processContact(createMessage(TMESS_CONTACT, "1", "2", "3", "4", "5", "6"), &testClient, &c, "TEST5")
-	require.True(t, testClient.(*TestClient).Check()) //todo переделать на проверку возврата error
+	r = processContact(createMessage(TMESS_CONTACT, "-1", "fold", "group2", "", "", ""), &testClient, &c, "TEST5")
+	require.True(t, testClient.(*TestClient).Check())
+	require.True(t, r == true)
+	group2 := testClient.(*TestClient).TestContactId
+
+	r = processContact(createMessage(TMESS_CONTACT, "-1", "fold", "group3", "", "", group2), &testClient, &c, "TEST5")
+	require.True(t, testClient.(*TestClient).Check())
+	require.True(t, r == true)
+	group3 := testClient.(*TestClient).TestContactId
+
+	r = processContact(createMessage(TMESS_CONTACT, "-1", "cont", "cont3", "333:333:333:333", "digest3", group3), &testClient, &c, "TEST5")
+	require.True(t, testClient.(*TestClient).Check())
+	require.True(t, r == true)
+	cont3 := testClient.(*TestClient).TestContactId
+
+	r = processContact(createMessage(TMESS_CONTACT, "-1", "cont", "cont4", "444:444:444:444", "digest4", group3), &testClient, &c, "TEST5")
+	require.True(t, testClient.(*TestClient).Check())
+	require.True(t, r == true)
+	cont4 := testClient.(*TestClient).TestContactId
+
+	r = processContact(createMessage(TMESS_CONTACT, "-1", "fold", "group4", "", "", ""), &testClient, &c, "TEST5")
+	require.True(t, testClient.(*TestClient).Check())
+	require.True(t, r == true)
+
+	r = processContact(createMessage(TMESS_CONTACT, "-1", "cont", "cont5", "555:555:555:555", "digest5", ""), &testClient, &c, "TEST5")
+	require.True(t, testClient.(*TestClient).Check())
+	require.True(t, r == true)
+
+	bytes, error := json.Marshal(*c.Profile.Contacts)
+	require.True(t, error == nil)
+	testContactsString1 := `{"Id":16,"Caption":"cont5","Type":"cont","Pid":"555:555:555:555","Digest":"digest5","Salt":"JJPJZPFRFEGMOTAF","Inner":null,"Next":{"Id":15,"Caption":"group4","Type":"fold","Pid":"","Digest":"","Salt":"","Inner":null,"Next":{"Id":6,"Caption":"group2","Type":"fold","Pid":"","Digest":"","Salt":"","Inner":{"Id":7,"Caption":"group3","Type":"fold","Pid":"","Digest":"","Salt":"","Inner":{"Id":12,"Caption":"cont4","Type":"cont","Pid":"444:444:444:444","Digest":"digest4","Salt":"JJPJZPFRFEGMOTAF","Inner":null,"Next":{"Id":9,"Caption":"cont3","Type":"cont","Pid":"333:333:333:333","Digest":"digest3","Salt":"JJPJZPFRFEGMOTAF","Inner":null,"Next":null}},"Next":null},"Next":{"Id":1,"Caption":"group1","Type":"fold","Pid":"","Digest":"","Salt":"","Inner":{"Id":4,"Caption":"cont2","Type":"cont","Pid":"222:222:222:222","Digest":"digest2","Salt":"JJPJZPFRFEGMOTAF","Inner":null,"Next":{"Id":2,"Caption":"cont1","Type":"cont","Pid":"111:111:111:111","Digest":"digest1","Salt":"JJPJZPFRFEGMOTAF","Inner":null,"Next":null}},"Next":null}}}}`
+	require.True(t, testContactsString1 == string(bytes))
+
+	//--------
+
+	r = processContact(createMessage(TMESS_CONTACT, cont4, "del", "", "", "", ""), &testClient, &c, "TEST5")
+	require.True(t, testClient.(*TestClient).Check())
+	require.True(t, r == true)
+
+	bytes, error = json.Marshal(*c.Profile.Contacts)
+	require.True(t, error == nil)
+	testContactsString2 := `{"Id":16,"Caption":"cont5","Type":"cont","Pid":"555:555:555:555","Digest":"digest5","Salt":"JJPJZPFRFEGMOTAF","Inner":null,"Next":{"Id":15,"Caption":"group4","Type":"fold","Pid":"","Digest":"","Salt":"","Inner":null,"Next":{"Id":6,"Caption":"group2","Type":"fold","Pid":"","Digest":"","Salt":"","Inner":{"Id":7,"Caption":"group3","Type":"fold","Pid":"","Digest":"","Salt":"","Inner":{"Id":9,"Caption":"cont3","Type":"cont","Pid":"333:333:333:333","Digest":"digest3","Salt":"JJPJZPFRFEGMOTAF","Inner":null,"Next":null},"Next":null},"Next":{"Id":1,"Caption":"group1","Type":"fold","Pid":"","Digest":"","Salt":"","Inner":{"Id":4,"Caption":"cont2","Type":"cont","Pid":"222:222:222:222","Digest":"digest2","Salt":"JJPJZPFRFEGMOTAF","Inner":null,"Next":{"Id":2,"Caption":"cont1","Type":"cont","Pid":"111:111:111:111","Digest":"digest1","Salt":"JJPJZPFRFEGMOTAF","Inner":null,"Next":null}},"Next":null}}}}`
+	require.True(t, testContactsString2 == string(bytes))
+
+	//--------
+
+	r = processContact(createMessage(TMESS_CONTACT, cont3, "cont", "cont3moved", "333:333:333:333", "digest3", group1), &testClient, &c, "TEST5")
+	bytes, error = json.Marshal(*c.Profile.Contacts)
+	require.True(t, testClient.(*TestClient).Check())
+	require.True(t, r == true)
+	testContactsString3 := `{"Id":16,"Caption":"cont5","Type":"cont","Pid":"555:555:555:555","Digest":"digest5","Salt":"JJPJZPFRFEGMOTAF","Inner":null,"Next":{"Id":15,"Caption":"group4","Type":"fold","Pid":"","Digest":"","Salt":"","Inner":null,"Next":{"Id":6,"Caption":"group2","Type":"fold","Pid":"","Digest":"","Salt":"","Inner":{"Id":7,"Caption":"group3","Type":"fold","Pid":"","Digest":"","Salt":"","Inner":null,"Next":null},"Next":{"Id":1,"Caption":"group1","Type":"fold","Pid":"","Digest":"","Salt":"","Inner":{"Id":9,"Caption":"cont3moved","Type":"cont","Pid":"333:333:333:333","Digest":"digest3","Salt":"JJPJZPFRFEGMOTAF","Inner":null,"Next":{"Id":4,"Caption":"cont2","Type":"cont","Pid":"222:222:222:222","Digest":"digest2","Salt":"JJPJZPFRFEGMOTAF","Inner":null,"Next":{"Id":2,"Caption":"cont1","Type":"cont","Pid":"111:111:111:111","Digest":"digest1","Salt":"JJPJZPFRFEGMOTAF","Inner":null,"Next":null}}},"Next":null}}}}`
+	require.True(t, testContactsString3 == string(bytes))
+
+	//--------
+
+	r = processContact(createMessage(TMESS_CONTACT, cont3, "cont", "cont3root", "333:333:333:333", "digest3", "12345"), &testClient, &c, "TEST5")
+	bytes, error = json.Marshal(*c.Profile.Contacts)
+	require.True(t, testClient.(*TestClient).Check())
+	require.True(t, r == true)
+	testContactsString5 := `{"Id":9,"Caption":"cont3root","Type":"cont","Pid":"333:333:333:333","Digest":"digest3","Salt":"JJPJZPFRFEGMOTAF","Inner":null,"Next":{"Id":16,"Caption":"cont5","Type":"cont","Pid":"555:555:555:555","Digest":"digest5","Salt":"JJPJZPFRFEGMOTAF","Inner":null,"Next":{"Id":15,"Caption":"group4","Type":"fold","Pid":"","Digest":"","Salt":"","Inner":null,"Next":{"Id":6,"Caption":"group2","Type":"fold","Pid":"","Digest":"","Salt":"","Inner":{"Id":7,"Caption":"group3","Type":"fold","Pid":"","Digest":"","Salt":"","Inner":null,"Next":null},"Next":{"Id":1,"Caption":"group1","Type":"fold","Pid":"","Digest":"","Salt":"","Inner":{"Id":4,"Caption":"cont2","Type":"cont","Pid":"222:222:222:222","Digest":"digest2","Salt":"JJPJZPFRFEGMOTAF","Inner":null,"Next":{"Id":2,"Caption":"cont1","Type":"cont","Pid":"111:111:111:111","Digest":"digest1","Salt":"JJPJZPFRFEGMOTAF","Inner":null,"Next":null}},"Next":null}}}}}`
+	require.True(t, testContactsString5 == string(bytes))
 
 }
 
@@ -331,33 +445,33 @@ func creationClient() bool {
 	return true
 }
 
-//func TestThreadClient(t *testing.T) {
-//
-//	countThread := 100
-//	done := make(chan bool)
-//
-//	go MainServer()
-//
-//	fail := false
-//	var mutex sync.Mutex
-//
-//	for i := 0; i < countThread; i++ {
-//
-//		go func(n int) {
-//			r := creationClient()
-//			if !r {
-//				mutex.Lock()
-//				fail = true
-//				mutex.Unlock()
-//			}
-//			done <- true
-//		}(i)
-//
-//	}
-//
-//	for i := 0; i < countThread; i++ {
-//		<-done
-//	}
-//
-//	require.True(t, fail == false)
-//}
+func TestThreadClient(t *testing.T) {
+
+	countThread := 100
+	done := make(chan bool)
+
+	go MainServer()
+
+	fail := false
+	var mutex sync.Mutex
+
+	for i := 0; i < countThread; i++ {
+
+		go func(n int) {
+			r := creationClient()
+			if !r {
+				mutex.Lock()
+				fail = true
+				mutex.Unlock()
+			}
+			done <- true
+		}(i)
+
+	}
+
+	for i := 0; i < countThread; i++ {
+		<-done
+	}
+
+	require.True(t, fail == false)
+}

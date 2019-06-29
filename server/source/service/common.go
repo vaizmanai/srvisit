@@ -149,7 +149,7 @@ type processingAgent struct {
 //обработчик для сообщений
 type processingMessage struct {
 	TMessage   int
-	Processing func(message Message, conn *net.Conn, curClient *Client, id string)
+	Processing func(message Message, conn *net.Conn, curClient *Client, id string) bool
 }
 
 func createMessage(TMessage int, Messages ...string) Message {
