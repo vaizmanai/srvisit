@@ -552,33 +552,33 @@ func creationClient() bool {
 	return true
 }
 
-//func TestThreadClient(t *testing.T) {
-//
-//	countThread := 100
-//	done := make(chan bool)
-//
-//	go MainServer()
-//
-//	fail := false
-//	var mutex sync.Mutex
-//
-//	for i := 0; i < countThread; i++ {
-//
-//		go func(n int) {
-//			r := creationClient()
-//			if !r {
-//				mutex.Lock()
-//				fail = true
-//				mutex.Unlock()
-//			}
-//			done <- true
-//		}(i)
-//
-//	}
-//
-//	for i := 0; i < countThread; i++ {
-//		<-done
-//	}
-//
-//	require.True(t, fail == false)
-//}
+func TestThreadClient(t *testing.T) {
+
+	countThread := 100
+	done := make(chan bool)
+
+	go MainServer()
+
+	fail := false
+	var mutex sync.Mutex
+
+	for i := 0; i < countThread; i++ {
+
+		go func(n int) {
+			r := creationClient()
+			if !r {
+				mutex.Lock()
+				fail = true
+				mutex.Unlock()
+			}
+			done <- true
+		}(i)
+
+	}
+
+	for i := 0; i < countThread; i++ {
+		<-done
+	}
+
+	require.True(t, fail == false)
+}
