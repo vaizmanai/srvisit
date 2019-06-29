@@ -52,6 +52,19 @@ type TestClient struct {
 	ContactsSuccess     bool
 }
 
+func (client *TestClient) ResetFlags() {
+	client.AuthSuccess = false
+	client.PingSuccess = false
+	client.RegSuccess = false
+	client.NotificationSuccess = false
+	client.DeAuthSuccess = false
+	client.ReqSuccess = false
+	client.ConnectSuccess = false
+	client.DisconnectSuccess = false
+	client.LoginSuccess = false
+	client.ContactsSuccess = false
+}
+
 func (client *TestClient) ResetError() {
 	client.CountError = 0
 }
@@ -88,8 +101,6 @@ func (client *TestClient) Write(b []byte) (n int, err error) {
 		client.Error(err.Error())
 		return len(b), err
 	}
-
-	fmt.Println("it's message type: " + fmt.Sprint(message.TMessage))
 
 	if message.TMessage == TMESS_AUTH {
 		fmt.Println("client got auth message")
@@ -132,6 +143,8 @@ func (client *TestClient) Write(b []byte) (n int, err error) {
 		client.LoginSuccess = true
 	} else if message.TMessage == TMESS_CONTACTS {
 		client.ContactsSuccess = true
+	} else if message.TMessage == TMESS_STANDART_ALERT {
+		//client.ContactsSuccess = true
 	} else if message.TMessage == TMESS_CONTACT {
 		//client.ContactsSuccess = true
 		client.TestContactId = message.Messages[0]
@@ -283,7 +296,18 @@ func TestStaticProcessing(t *testing.T) {
 	require.True(t, p.Pass == common.PredefinedPass)
 	require.True(t, r == true)
 
-	r = processLogin(createMessage(TMESS_LOGIN), &testClient, &c, "TEST1")
+	c.Version = "0.4"
+	testProfile(t, testClient, c, email)
+
+	c.Version = "1.3"
+	testProfile(t, testClient, c, email)
+}
+
+func testProfile(t *testing.T, testClient net.Conn, c client.Client, email string) {
+	testClient.(*TestClient).ResetFlags()
+	profile.GetProfile(email).Contacts = nil
+
+	r := processLogin(createMessage(TMESS_LOGIN), &testClient, &c, "TEST1")
 	require.True(t, testClient.(*TestClient).Check())
 	require.True(t, testClient.(*TestClient).LoginSuccess == false)
 	require.True(t, r == false)
@@ -300,12 +324,12 @@ func TestStaticProcessing(t *testing.T) {
 	require.True(t, len(client.GetAuthorizedClientList(email)) == 1)
 	require.True(t, r == true)
 
-	r = processLogout(createMessage(TMESS_LOGOUT, email, common.GetSHA256(common.PredefinedPass+c.Salt)), &testClient, &c, "TEST1")
+	r = processLogout(createMessage(TMESS_LOGOUT), &testClient, &c, "TEST1")
 	require.True(t, testClient.(*TestClient).Check())
 	require.True(t, len(client.GetAuthorizedClientList(email)) == 0)
 	require.True(t, r == true)
 
-	r = processLogout(createMessage(TMESS_LOGOUT, email, common.GetSHA256(common.PredefinedPass+c.Salt)), &testClient, &c, "TEST2")
+	r = processLogout(createMessage(TMESS_LOGOUT), &testClient, &c, "TEST2")
 	require.True(t, testClient.(*TestClient).Check())
 	require.True(t, len(client.GetAuthorizedClientList(email)) == 0)
 	require.True(t, r == false)
@@ -421,6 +445,12 @@ func TestStaticProcessing(t *testing.T) {
 	testContactsString5 := `{"Id":9,"Caption":"cont3root","Type":"cont","Pid":"333:333:333:333","Digest":"digest3","Salt":"JJPJZPFRFEGMOTAF","Inner":null,"Next":{"Id":16,"Caption":"cont5","Type":"cont","Pid":"555:555:555:555","Digest":"digest5","Salt":"JJPJZPFRFEGMOTAF","Inner":null,"Next":{"Id":15,"Caption":"group4","Type":"fold","Pid":"","Digest":"","Salt":"","Inner":null,"Next":{"Id":6,"Caption":"group2","Type":"fold","Pid":"","Digest":"","Salt":"","Inner":{"Id":7,"Caption":"group3","Type":"fold","Pid":"","Digest":"","Salt":"","Inner":null,"Next":null},"Next":{"Id":1,"Caption":"group1","Type":"fold","Pid":"","Digest":"","Salt":"","Inner":{"Id":4,"Caption":"cont2","Type":"cont","Pid":"222:222:222:222","Digest":"digest2","Salt":"JJPJZPFRFEGMOTAF","Inner":null,"Next":{"Id":2,"Caption":"cont1","Type":"cont","Pid":"111:111:111:111","Digest":"digest1","Salt":"JJPJZPFRFEGMOTAF","Inner":null,"Next":null}},"Next":null}}}}}`
 	require.True(t, testContactsString5 == string(bytes))
 
+	//--------
+
+	r = processLogout(createMessage(TMESS_LOGOUT), &testClient, &c, "TEST1")
+	require.True(t, testClient.(*TestClient).Check())
+	require.True(t, len(client.GetAuthorizedClientList(email)) == 0)
+	require.True(t, r == true)
 }
 
 func creationClient() bool {
@@ -445,33 +475,33 @@ func creationClient() bool {
 	return true
 }
 
-func TestThreadClient(t *testing.T) {
-
-	countThread := 100
-	done := make(chan bool)
-
-	go MainServer()
-
-	fail := false
-	var mutex sync.Mutex
-
-	for i := 0; i < countThread; i++ {
-
-		go func(n int) {
-			r := creationClient()
-			if !r {
-				mutex.Lock()
-				fail = true
-				mutex.Unlock()
-			}
-			done <- true
-		}(i)
-
-	}
-
-	for i := 0; i < countThread; i++ {
-		<-done
-	}
-
-	require.True(t, fail == false)
-}
+//func TestThreadClient(t *testing.T) {
+//
+//	countThread := 100
+//	done := make(chan bool)
+//
+//	go MainServer()
+//
+//	fail := false
+//	var mutex sync.Mutex
+//
+//	for i := 0; i < countThread; i++ {
+//
+//		go func(n int) {
+//			r := creationClient()
+//			if !r {
+//				mutex.Lock()
+//				fail = true
+//				mutex.Unlock()
+//			}
+//			done <- true
+//		}(i)
+//
+//	}
+//
+//	for i := 0; i < countThread; i++ {
+//		<-done
+//	}
+//
+//	require.True(t, fail == false)
+//}
