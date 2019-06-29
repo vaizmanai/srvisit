@@ -528,6 +528,10 @@ func testProfile(t *testing.T, testClient net.Conn, c client.Client, email strin
 	r = processContactReverse(createMessage(TMESS_CONTACT_REVERSE, "1", "2", "3"), &testClient, &c, "TEST2")
 	require.True(t, testClient.(*TestClient).Check())
 	require.True(t, r == false)
+
+	//--------
+
+	testThreadClient(t)
 }
 
 func creationClient() bool {
@@ -552,7 +556,7 @@ func creationClient() bool {
 	return true
 }
 
-func TestThreadClient(t *testing.T) {
+func testThreadClient(t *testing.T) {
 
 	countThread := 100
 	done := make(chan bool)
