@@ -583,9 +583,10 @@ func testThreadClient(t *testing.T) {
 	done := make(chan bool)
 
 	go MainServer()
+	go DataServer()
 
 	time.Sleep(time.Second)
-	
+
 	fail := false
 	var mutex sync.Mutex
 
