@@ -2,6 +2,7 @@ package contact
 
 import (
 	"../../common"
+	"sync"
 )
 
 //тип для контакта
@@ -15,9 +16,11 @@ type Contact struct {
 
 	Inner *Contact
 	Next  *Contact
+
+	mutex sync.RWMutex
 }
 
-func DelContact(first *Contact, id int) *Contact {
+func delContact(first *Contact, id int) *Contact {
 	if first == nil {
 		return first
 	}
@@ -34,7 +37,7 @@ func DelContact(first *Contact, id int) *Contact {
 		}
 
 		if first.Inner != nil {
-			first.Inner = DelContact(first.Inner, id)
+			first.Inner = delContact(first.Inner, id)
 		}
 
 		first = first.Next
@@ -43,7 +46,15 @@ func DelContact(first *Contact, id int) *Contact {
 	return res
 }
 
-func GetContact(first *Contact, id int) *Contact {
+func DelContact(first *Contact, id int) *Contact {
+	if first != nil {
+		first.mutex.Lock()
+		defer first.mutex.Unlock()
+	}
+	return delContact(first, id)
+}
+
+func getContact(first *Contact, id int) *Contact {
 
 	for first != nil {
 		if first.Id == id {
@@ -51,7 +62,34 @@ func GetContact(first *Contact, id int) *Contact {
 		}
 
 		if first.Inner != nil {
-			inner := GetContact(first.Inner, id)
+			inner := getContact(first.Inner, id)
+			if inner != nil {
+				return inner
+			}
+		}
+
+		first = first.Next
+	}
+
+	return nil
+}
+
+func GetContact(first *Contact, id int) *Contact {
+	if first != nil {
+		first.mutex.RLock()
+		defer first.mutex.RUnlock()
+	}
+	return getContact(first, id)
+}
+
+func getContactByPid(first *Contact, pid string) *Contact {
+	for first != nil {
+		if common.CleanPid(first.Pid) == pid {
+			return first
+		}
+
+		if first.Inner != nil {
+			inner := getContactByPid(first.Inner, pid)
 			if inner != nil {
 				return inner
 			}
@@ -64,26 +102,14 @@ func GetContact(first *Contact, id int) *Contact {
 }
 
 func GetContactByPid(first *Contact, pid string) *Contact {
-
-	for first != nil {
-		if common.CleanPid(first.Pid) == pid {
-			return first
-		}
-
-		if first.Inner != nil {
-			inner := GetContactByPid(first.Inner, pid)
-			if inner != nil {
-				return inner
-			}
-		}
-
-		first = first.Next
+	if first != nil {
+		first.mutex.RLock()
+		defer first.mutex.RUnlock()
 	}
-
-	return nil
+	return getContactByPid(first, pid)
 }
 
-func GetNewId(contact *Contact) int {
+func getNewId(contact *Contact) int {
 	if contact == nil {
 		return 1
 	}
@@ -97,7 +123,7 @@ func GetNewId(contact *Contact) int {
 		}
 
 		if contact.Inner != nil {
-			t := GetNewId(contact.Inner)
+			t := getNewId(contact.Inner)
 			if t >= r {
 				r = t + 1
 			}
@@ -107,4 +133,12 @@ func GetNewId(contact *Contact) int {
 	}
 
 	return r
+}
+
+func GetNewId(contact *Contact) int {
+	if contact != nil {
+		contact.mutex.RLock()
+		defer contact.mutex.RUnlock()
+	}
+	return getNewId(contact)
 }
