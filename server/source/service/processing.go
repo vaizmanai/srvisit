@@ -62,7 +62,7 @@ func processAuth(message Message, conn *net.Conn, curClient *Client, id string) 
 		go func() {
 			h, _, err := net.SplitHostPort((*curClient.Conn).RemoteAddr().String())
 			if err == nil {
-				(*curClient).SetCoordinates(GetCoordinatesByYandex(h))
+				curClient.SetCoordinates(GetCoordinatesByYandex(h))
 			}
 		}()
 	}
@@ -230,12 +230,14 @@ func processReg(message Message, conn *net.Conn, curClient *Client, id string) b
 			msg := "Subject: Information from reVisit\r\n\r\nYour password is " + newProfile.Pass + "\r\n"
 			success, err := SendEmail(message.Messages[0], msg)
 			if !success {
+				DelProfile(newProfile.Email)
 				LogAdd(MessError, id+" не удалось отправить письмо с паролем: "+fmt.Sprint(err))
 				if curClient.GreaterVersionThan(MinimalVersionForStaticAlert) {
 					sendMessage(conn, TMESS_STANDART_ALERT, fmt.Sprint(StaticMessageRegMail))
 				} else {
 					sendMessage(conn, TMESS_NOTIFICATION, "Не удалось отправить письмо с паролем!") //todo удалить
 				}
+				return false
 			}
 		} else {
 			newProfile.Pass = PredefinedPass
@@ -362,17 +364,17 @@ func processContacts(message Message, conn *net.Conn, curClient *Client, id stri
 
 	//отправляем все контакты
 	b, err := json.Marshal(curClient.Profile.Contacts)
-	if err == nil {
-		enc := url.PathEscape(string(b))
-		sendMessage(conn, TMESS_CONTACTS, enc)
-		LogAdd(MessInfo, id+" отправили контакты")
-
-		processStatuses(createMessage(TMESS_STATUSES), conn, curClient, id)
-		return true
+	if err != nil {
+		LogAdd(MessError, id+" не получилось отправить контакты: "+fmt.Sprint(err))
+		return false
 	}
 
-	LogAdd(MessError, id+" не получилось отправить контакты: "+fmt.Sprint(err))
-	return false
+	enc := url.PathEscape(string(b))
+	sendMessage(conn, TMESS_CONTACTS, enc)
+	LogAdd(MessInfo, id+" отправили контакты")
+
+	processStatuses(createMessage(TMESS_STATUSES), conn, curClient, id)
+	return true
 }
 
 func processLogout(message Message, conn *net.Conn, curClient *Client, id string) bool {
@@ -467,7 +469,7 @@ func processStatus(message Message, conn *net.Conn, curClient *Client, id string
 		contact := GetContact(curClient.Profile.Contacts, i)
 		if contact != nil {
 			list := GetClientsList(contact.Pid)
-			if list != nil && len(list) > 0 {
+			if len(list) > 0 {
 				sendMessage(conn, TMESS_STATUS, contact.Pid, "1")
 			} else {
 				sendMessage(conn, TMESS_STATUS, contact.Pid, "0")
@@ -494,7 +496,7 @@ func processInfoContact(message Message, conn *net.Conn, curClient *Client, id s
 		p := GetContact(curClient.Profile.Contacts, i)
 		if p != nil {
 			list := GetClientsList(p.Pid)
-			if list != nil {
+			if len(list) != 0 {
 				for _, peer := range list {
 					sendMessage(peer.Conn, TMESS_INFO_CONTACT, curClient.Pid, p.Digest, p.Salt)
 				}
@@ -533,7 +535,7 @@ func processInfoAnswer(message Message, conn *net.Conn, curClient *Client, id st
 	}
 
 	list := GetClientsList(message.Messages[0])
-	if list != nil {
+	if len(list) > 0 {
 		for _, peer := range list {
 			if peer.Profile != nil {
 				sendMessage(peer.Conn, TMESS_INFO_ANSWER, message.Messages...)
@@ -571,7 +573,7 @@ func processManage(message Message, conn *net.Conn, curClient *Client, id string
 		p := GetContact(curClient.Profile.Contacts, i)
 		if p != nil {
 			list := GetClientsList(p.Pid)
-			if list != nil {
+			if len(list) > 0 {
 				for _, peer := range list {
 					var content []string
 					content = append(content, curClient.Pid, p.Digest, p.Salt)
