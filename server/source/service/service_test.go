@@ -343,8 +343,8 @@ func TestStaticProcessing(t *testing.T) {
 
 	fmt.Println("---------------------------------------------")
 
-	//testThreadClient(t)
-	//testWebThreads(t)
+	testThreadClient(t)
+	testWebThreads(t)
 }
 
 func testProfile(t *testing.T, testClient net.Conn, c client.Client, email string) {
