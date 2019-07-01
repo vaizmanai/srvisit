@@ -349,8 +349,6 @@ func TestStaticProcessing(t *testing.T) {
 	c.Version = "0.4"
 	testProfile(t, testClient, c, email)
 
-	time.Sleep(time.Second * 10)
-
 	c.Version = "1.3"
 	testProfile(t, testClient, c, email)
 
@@ -378,6 +376,8 @@ func testProfile(t *testing.T, testClient net.Conn, c client.Client, email strin
 	}
 	require.True(t, profile.GetProfile(email1) == nil)
 
+	time.Sleep(time.Second)
+	
 	//не правильное кол-во полей
 	r = processLogin(createMessage(TMESS_LOGIN), &testClient, &c, "TEST1")
 	require.True(t, testClient.(*TestClient).Check())
