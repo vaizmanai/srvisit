@@ -343,8 +343,8 @@ func TestStaticProcessing(t *testing.T) {
 
 	fmt.Println("---------------------------------------------")
 
-	testThreadClient(t)
-	testWebThreads(t)
+	//testThreadClient(t)
+	//testWebThreads(t)
 }
 
 func testProfile(t *testing.T, testClient net.Conn, c client.Client, email string) {
@@ -516,6 +516,17 @@ func testProfile(t *testing.T, testClient net.Conn, c client.Client, email strin
 		require.True(t, code == TMESS_NOTIFICATION && mess[0] == "Нет такого контакта в сети!")
 	}
 
+	//нет такого контакта в профиле
+	r = processManage(createMessage(TMESS_MANAGE, "0", "2"), &testClient, &c, "TEST4")
+	require.True(t, testClient.(*TestClient).Check())
+	require.True(t, r == true)
+	code, mess = testClient.(*TestClient).Last()
+	if c.GreaterVersionThan(common.MinimalVersionForStaticAlert) {
+		require.True(t, code == TMESS_STANDART_ALERT && mess[0] == fmt.Sprint(common.StaticMessageAbsentError))
+	} else {
+		require.True(t, code == TMESS_NOTIFICATION && mess[0] == "Нет такого контакта в профиле!")
+	}
+
 	r = processLogout(createMessage(TMESS_LOGOUT), &testClient, &c, "TEST1")
 	require.True(t, testClient.(*TestClient).Check())
 	require.True(t, len(client.GetAuthorizedClientList(email)) == 0)
@@ -648,7 +659,7 @@ func testWebThreads(t *testing.T) {
 
 func creationWebClient() bool {
 	testMethods := []string{"GET", "POST", "DELETE", "PUT", "OPTIONS"}
-	testNewRequests := []string{"/", "/v2/api", "/v2/api/auth", "/v2/api/client", "/v2/api/clients", "/v2/api/profiles"}
+	testNewRequests := []string{"/v2/api", "/v2/api/auth", "/v2/api/client", "/v2/api/clients", "/v2/api/profiles"}
 
 	method := testMethods[common.RandInt(0, len(testMethods))]
 	url := testNewRequests[common.RandInt(0, len(testNewRequests))]
@@ -674,6 +685,9 @@ func creationWebClient() bool {
 	}
 
 	fmt.Println(desc + ": " + resp.Status + " - " + string(b))
+	if resp.StatusCode == http.StatusOK {
+		return false
+	}
 
 	return true
 }

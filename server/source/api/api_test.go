@@ -50,6 +50,8 @@ func TestStaticApi(t *testing.T) {
 	w.Header().Set("test", "TEST")
 	require.True(t, w.Header().Get("test") == "TEST")
 
+	//------------
+
 	common.LogAdd(common.MessFull, "preparing for deletion")
 	HandleGetLog(w, r)
 	require.True(t, strings.Contains(string(w.test), "preparing for deletion"))
@@ -68,4 +70,11 @@ func TestStaticApi(t *testing.T) {
 	HandleGetClientsList(w, r)
 	fmt.Println(string(w.test))
 	require.True(t, string(w.test) == `[{"Serial":"","Pid":"1234567890","Pass":"","Version":"","Salt":"","Profile":null,"Token":"","Conn":null,"Code":""}]`)
+
+	//------------
+
+	HandleGetClient(w, r, &test)
+	fmt.Println(string(w.test))
+	require.True(t, string(w.test) == `{"Serial":"","Pid":"1234567890","Pass":"","Version":"","Salt":"","Profile":null,"Token":"","Conn":null,"Code":""}`)
+
 }
