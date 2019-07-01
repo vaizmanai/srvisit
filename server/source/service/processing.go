@@ -362,17 +362,17 @@ func processContacts(message Message, conn *net.Conn, curClient *Client, id stri
 
 	//отправляем все контакты
 	b, err := json.Marshal(curClient.Profile.Contacts)
-	if err == nil {
-		enc := url.PathEscape(string(b))
-		sendMessage(conn, TMESS_CONTACTS, enc)
-		LogAdd(MessInfo, id+" отправили контакты")
-
-		processStatuses(createMessage(TMESS_STATUSES), conn, curClient, id)
-		return true
+	if err != nil {
+		LogAdd(MessError, id+" не получилось отправить контакты: "+fmt.Sprint(err))
+		return false
 	}
 
-	LogAdd(MessError, id+" не получилось отправить контакты: "+fmt.Sprint(err))
-	return false
+	enc := url.PathEscape(string(b))
+	sendMessage(conn, TMESS_CONTACTS, enc)
+	LogAdd(MessInfo, id+" отправили контакты")
+
+	processStatuses(createMessage(TMESS_STATUSES), conn, curClient, id)
+	return true
 }
 
 func processLogout(message Message, conn *net.Conn, curClient *Client, id string) bool {

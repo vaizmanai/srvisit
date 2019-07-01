@@ -499,6 +499,13 @@ func testProfile(t *testing.T, testClient net.Conn, c client.Client, email strin
 	testContactsString5 := `{"Id":9,"Caption":"cont3root","Type":"cont","Pid":"333:333:333:333","Digest":"digest3","Salt":"JJPJZPFRFEGMOTAF","Inner":null,"Next":{"Id":16,"Caption":"cont5","Type":"cont","Pid":"555:555:555:555","Digest":"digest5","Salt":"JJPJZPFRFEGMOTAF","Inner":null,"Next":{"Id":15,"Caption":"group4","Type":"fold","Pid":"","Digest":"","Salt":"","Inner":null,"Next":{"Id":6,"Caption":"group2","Type":"fold","Pid":"","Digest":"","Salt":"","Inner":{"Id":7,"Caption":"group3","Type":"fold","Pid":"","Digest":"","Salt":"","Inner":null,"Next":null},"Next":{"Id":1,"Caption":"group1","Type":"fold","Pid":"","Digest":"","Salt":"","Inner":{"Id":4,"Caption":"cont2","Type":"cont","Pid":"222:222:222:222","Digest":"digest2","Salt":"JJPJZPFRFEGMOTAF","Inner":null,"Next":{"Id":2,"Caption":"cont1","Type":"cont","Pid":"111:111:111:111","Digest":"digest1","Salt":"JJPJZPFRFEGMOTAF","Inner":null,"Next":null}},"Next":null}}}}}`
 	require.True(t, testContactsString5 == string(bytes))
 
+	r = processContact(createMessage(TMESS_CONTACT, cont3, "cont", "cont3root", "333:333:333:333", "digest3", "a123"), &testClient, &c, "TEST5")
+	bytes, error = json.Marshal(*c.Profile.Contacts)
+	require.True(t, testClient.(*TestClient).Check())
+	require.True(t, r == true)
+	code, mess = testClient.(*TestClient).Last()
+	require.True(t, code == TMESS_CONTACT && fmt.Sprint(mess) == `[9 cont cont3root 333:333:333:333 digest3 a123]`)
+
 	//--------
 
 	//пустой индекс
@@ -518,6 +525,26 @@ func testProfile(t *testing.T, testClient net.Conn, c client.Client, email strin
 
 	//нет такого контакта в профиле
 	r = processManage(createMessage(TMESS_MANAGE, "0", "2"), &testClient, &c, "TEST4")
+	require.True(t, testClient.(*TestClient).Check())
+	require.True(t, r == true)
+	code, mess = testClient.(*TestClient).Last()
+	if c.GreaterVersionThan(common.MinimalVersionForStaticAlert) {
+		require.True(t, code == TMESS_STANDART_ALERT && mess[0] == fmt.Sprint(common.StaticMessageAbsentError))
+	} else {
+		require.True(t, code == TMESS_NOTIFICATION && mess[0] == "Нет такого контакта в профиле!")
+	}
+
+	r = processConnectContact(createMessage(TMESS_CONNECT_CONTACT, "1"), &testClient, &c, "TEST1")
+	require.True(t, testClient.(*TestClient).Check())
+	require.True(t, r == true)
+	code, mess = testClient.(*TestClient).Last()
+	if c.GreaterVersionThan(common.MinimalVersionForStaticAlert) {
+		require.True(t, code == TMESS_STANDART_ALERT && mess[0] == fmt.Sprint(common.StaticMessageAbsentError))
+	} else {
+		require.True(t, code == TMESS_NOTIFICATION && mess[0] == "Нет такого пира")
+	}
+
+	r = processConnectContact(createMessage(TMESS_CONNECT_CONTACT, "-1"), &testClient, &c, "TEST1")
 	require.True(t, testClient.(*TestClient).Check())
 	require.True(t, r == true)
 	code, mess = testClient.(*TestClient).Last()
@@ -572,6 +599,13 @@ func testProfile(t *testing.T, testClient net.Conn, c client.Client, email strin
 	//r = processStatus(createMessage(TMESS_STATUS, ""), &testClient, &c, "TEST3")
 	//require.True(t, testClient.(*TestClient).Check())
 	//require.True(t, r == false)
+
+	//--------
+
+	//не авторизованный профиль
+	r = processContacts(createMessage(TMESS_STATUS, "1"), &testClient, &c, "TEST2")
+	require.True(t, testClient.(*TestClient).Check())
+	require.True(t, r == false)
 
 	//--------
 
