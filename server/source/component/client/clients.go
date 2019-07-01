@@ -107,8 +107,9 @@ func GetAllClientsList() []*Client {
 
 func (client *Client) Coordinates() [2]float64 {
 	client.mutex.RLock()
-	defer client.mutex.RUnlock()
-	return client.coordinates
+	resp := client.coordinates
+	client.mutex.RUnlock()
+	return resp
 }
 
 func (client *Client) SetCoordinates(coordinate [2]float64) {
