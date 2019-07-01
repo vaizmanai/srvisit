@@ -349,6 +349,8 @@ func TestStaticProcessing(t *testing.T) {
 	c.Version = "0.4"
 	testProfile(t, testClient, c, email)
 
+	time.Sleep(time.Second * 10)
+
 	c.Version = "1.3"
 	testProfile(t, testClient, c, email)
 
