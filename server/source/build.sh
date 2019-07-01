@@ -1,3 +1,3 @@
 #!/bin/sh
 
-go build -o ../build/server
+go build -o ../build/srvisit
