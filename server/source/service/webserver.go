@@ -6,6 +6,7 @@ import (
 	. "../component/client"
 	"fmt"
 	"github.com/gorilla/mux"
+	"net"
 	"net/http"
 	"time"
 )
@@ -128,16 +129,24 @@ func handleCORS(h http.Handler) http.Handler {
 func handleAuth(w http.ResponseWriter, r *http.Request) {
 	pid := string(r.FormValue("abc"))
 	token := string(r.FormValue("cba"))
+	destination := string(r.FormValue("destination"))
 
 	LogAdd(MessInfo, "trying to auth app "+pid)
 
 	list := GetClientsList(pid)
 	for _, c := range list {
-		if c.Token == token {
+		if c.Token == token { //todo add checking ip
+			clientIp, _, _ := net.SplitHostPort((*c.Conn).RemoteAddr().String())
+			webIp, _, _ := net.SplitHostPort(r.RemoteAddr)
+			if webIp != clientIp {
+				continue
+			}
 			cookie_pid := http.Cookie{Name: "abc", Value: pid, Expires: time.Now().Add(WebSessionTimeoutHour * time.Hour)}
 			cookie_token := http.Cookie{Name: "cba", Value: token, Expires: time.Now().Add(WebSessionTimeoutHour * time.Hour)}
 			http.SetCookie(w, &cookie_pid)
 			http.SetCookie(w, &cookie_token)
+
+			http.Redirect(w, r, destination, http.StatusTemporaryRedirect)
 			return
 		}
 	}
