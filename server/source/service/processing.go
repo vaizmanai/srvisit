@@ -467,7 +467,7 @@ func processStatus(message Message, conn *net.Conn, curClient *Client, id string
 		contact := GetContact(curClient.Profile.Contacts, i)
 		if contact != nil {
 			list := GetClientsList(contact.Pid)
-			if list != nil && len(list) > 0 {
+			if len(list) > 0 {
 				sendMessage(conn, TMESS_STATUS, contact.Pid, "1")
 			} else {
 				sendMessage(conn, TMESS_STATUS, contact.Pid, "0")
@@ -533,7 +533,7 @@ func processInfoAnswer(message Message, conn *net.Conn, curClient *Client, id st
 	}
 
 	list := GetClientsList(message.Messages[0])
-	if list != nil {
+	if len(list) > 0 {
 		for _, peer := range list {
 			if peer.Profile != nil {
 				sendMessage(peer.Conn, TMESS_INFO_ANSWER, message.Messages...)
@@ -571,7 +571,7 @@ func processManage(message Message, conn *net.Conn, curClient *Client, id string
 		p := GetContact(curClient.Profile.Contacts, i)
 		if p != nil {
 			list := GetClientsList(p.Pid)
-			if list != nil {
+			if len(list) > 0 {
 				for _, peer := range list {
 					var content []string
 					content = append(content, curClient.Pid, p.Digest, p.Salt)
