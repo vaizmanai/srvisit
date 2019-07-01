@@ -62,7 +62,7 @@ func processAuth(message Message, conn *net.Conn, curClient *Client, id string) 
 		go func() {
 			h, _, err := net.SplitHostPort((*curClient.Conn).RemoteAddr().String())
 			if err == nil {
-				(*curClient).SetCoordinates(GetCoordinatesByYandex(h))
+				curClient.SetCoordinates(GetCoordinatesByYandex(h))
 			}
 		}()
 	}
