@@ -170,7 +170,7 @@ func SwiftCounter() {
 }
 
 func SaveCounters() {
-	b, err := json.Marshal(&counterData)
+	b, err := json.MarshalIndent(&counterData, "", "  ")
 	if err == nil {
 		f, err := os.Create(CountersFilename)
 		if err == nil {

@@ -14,7 +14,6 @@ var (
 	//карта учеток
 	profiles sync.Map
 	mutex    sync.Mutex
-	//	profiles = make(map[string]int)
 )
 
 //тип для профиля
@@ -82,7 +81,7 @@ func GetProfileList() []*Profile {
 func SaveProfiles() {
 	list := GetProfileList()
 
-	b, err := json.Marshal(list)
+	b, err := json.MarshalIndent(list, "", "  ")
 	if err != nil {
 		common.LogAdd(common.MessError, "Не удалось сохранить профили: "+fmt.Sprint(err))
 		return

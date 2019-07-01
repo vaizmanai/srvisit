@@ -229,7 +229,7 @@ type YandexBody struct {
 }
 
 func SaveOptions() {
-	b, err := json.Marshal(Options)
+	b, err := json.MarshalIndent(Options, "", "  ")
 	if err != nil {
 		LogAdd(MessError, "Не удалось сохранить настройки: "+fmt.Sprint(err))
 		return
