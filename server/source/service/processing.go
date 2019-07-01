@@ -494,7 +494,7 @@ func processInfoContact(message Message, conn *net.Conn, curClient *Client, id s
 		p := GetContact(curClient.Profile.Contacts, i)
 		if p != nil {
 			list := GetClientsList(p.Pid)
-			if list != nil {
+			if len(list) != 0 {
 				for _, peer := range list {
 					sendMessage(peer.Conn, TMESS_INFO_CONTACT, curClient.Pid, p.Digest, p.Salt)
 				}

@@ -33,9 +33,10 @@ func (t TestAddr) String() string {
 }
 
 type TestClient struct {
-	CountError  int
-	lastMessage string
-	mutex       sync.RWMutex
+	countError   int
+	lastMessages []string
+	lastCode     int
+	mutex        sync.RWMutex
 	//-----
 	TestConnectCode string
 	TestContactId   string
@@ -65,18 +66,25 @@ func (client *TestClient) ResetFlags() {
 	client.ContactsSuccess = false
 }
 
+func (client *TestClient) Last() (int, []string) {
+	code := client.lastCode
+	client.lastCode = -1
+	return code, client.lastMessages
+}
+
 func (client *TestClient) ResetError() {
-	client.CountError = 0
+	client.countError = 0
 }
 
 func (client *TestClient) Error(message string) {
-	client.CountError++
-	client.lastMessage = message
+	client.countError++
+	client.lastMessages = make([]string, 1)
+	client.lastMessages[0] = message
 }
 
 func (client *TestClient) Check() bool {
-	if client.CountError > 0 {
-		fmt.Println("client with error: " + client.lastMessage)
+	if client.countError > 0 {
+		fmt.Println("client with error: " + client.lastMessages[0])
 		client.ResetError()
 		return false
 	}
@@ -102,6 +110,8 @@ func (client *TestClient) Write(b []byte) (n int, err error) {
 		return len(b), err
 	}
 
+	client.lastCode = message.TMessage
+	client.lastMessages = message.Messages
 	if message.TMessage == TMESS_AUTH {
 		fmt.Println("client got auth message")
 		if len(message.Messages) != 3 {
@@ -304,7 +314,7 @@ func TestStaticProcessing(t *testing.T) {
 
 	fmt.Println("---------------------------------------------")
 
-	testThreadClient(t)
+	//testThreadClient(t)
 }
 
 func testProfile(t *testing.T, testClient net.Conn, c client.Client, email string) {
@@ -456,6 +466,16 @@ func testProfile(t *testing.T, testClient net.Conn, c client.Client, email strin
 	require.True(t, testClient.(*TestClient).Check())
 	require.True(t, r == false)
 
+	r = processInfoContact(createMessage(TMESS_INFO_CONTACT, "9"), &testClient, &c, "TEST3")
+	require.True(t, testClient.(*TestClient).Check())
+	require.True(t, r == true)
+	code, mess := testClient.(*TestClient).Last()
+	if c.GreaterVersionThan(common.MinimalVersionForStaticAlert) {
+		require.True(t, code == TMESS_STANDART_ALERT && mess[0] == fmt.Sprint(common.StaticMessageAbsentError))
+	} else {
+		require.True(t, code == TMESS_NOTIFICATION && mess[0] == "Нет такого контакта в сети!")
+	}
+
 	r = processLogout(createMessage(TMESS_LOGOUT), &testClient, &c, "TEST1")
 	require.True(t, testClient.(*TestClient).Check())
 	require.True(t, len(client.GetAuthorizedClientList(email)) == 0)
@@ -577,7 +597,6 @@ func creationClient() bool {
 }
 
 func testThreadClient(t *testing.T) {
-
 
 	countThread := 100
 	done := make(chan bool)
