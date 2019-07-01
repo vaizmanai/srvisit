@@ -335,6 +335,17 @@ func TestStaticProcessing(t *testing.T) {
 	code, mess = testClient.(*TestClient).Last()
 	require.True(t, code == TMESS_NOTIFICATION && mess[0] == "Учетная запись создана, Ваш пароль на почте!")
 
+	//учетка занята
+	r = processReg(createMessage(TMESS_REG, email), &testClient, &c, "TEST")
+	require.True(t, testClient.(*TestClient).Check())
+	require.True(t, testClient.(*TestClient).RegSuccess == true)
+	code, mess = testClient.(*TestClient).Last()
+	if c.GreaterVersionThan(common.MinimalVersionForStaticAlert) {
+		require.True(t, code == TMESS_STANDART_ALERT && mess[0] == fmt.Sprint(common.StaticMessageRegFail))
+	} else {
+		require.True(t, code == TMESS_NOTIFICATION && mess[0] == "Такая учетная запись уже существует!")
+	}
+
 	c.Version = "0.4"
 	testProfile(t, testClient, c, email)
 
@@ -362,7 +373,6 @@ func testProfile(t *testing.T, testClient net.Conn, c client.Client, email strin
 	require.True(t, testClient.(*TestClient).LoginSuccess == false)
 	require.True(t, r == true)
 	code, mess := testClient.(*TestClient).Last()
-	fmt.Println(c.Version)
 	if c.GreaterVersionThan(common.MinimalVersionForStaticAlert) {
 		require.True(t, code == TMESS_STANDART_ALERT && mess[0] == fmt.Sprint(common.StaticMessageAuthFail))
 	} else {
@@ -399,6 +409,11 @@ func testProfile(t *testing.T, testClient net.Conn, c client.Client, email strin
 	r = processLogin(createMessage(TMESS_LOGIN, email, common.GetSHA256(common.PredefinedPass+c.Salt)), &testClient, &c, "TEST3")
 	require.True(t, testClient.(*TestClient).Check())
 	require.True(t, r == true)
+
+	//пустой индекс
+	r = processStatus(createMessage(TMESS_STATUS, ""), &testClient, &c, "TEST5")
+	require.True(t, testClient.(*TestClient).Check())
+	require.True(t, r == false)
 
 	r = processContact(createMessage(TMESS_CONTACT, "a123", "2", "3", "4", "5", "6"), &testClient, &c, "TEST4")
 	require.True(t, testClient.(*TestClient).Check())
@@ -552,6 +567,16 @@ func testProfile(t *testing.T, testClient net.Conn, c client.Client, email strin
 		require.True(t, code == TMESS_STANDART_ALERT && mess[0] == fmt.Sprint(common.StaticMessageAbsentError))
 	} else {
 		require.True(t, code == TMESS_NOTIFICATION && mess[0] == "Нет такого контакта в профиле!")
+	}
+
+	r = processConnectContact(createMessage(TMESS_CONNECT_CONTACT, "a123"), &testClient, &c, "TEST1")
+	require.True(t, testClient.(*TestClient).Check())
+	require.True(t, r == true)
+	code, mess = testClient.(*TestClient).Last()
+	if c.GreaterVersionThan(common.MinimalVersionForStaticAlert) {
+		require.True(t, code == TMESS_STANDART_ALERT && mess[0] == fmt.Sprint(common.StaticMessageAbsentError))
+	} else {
+		require.True(t, code == TMESS_NOTIFICATION && mess[0] == "Ошибка преобразования идентификатора!")
 	}
 
 	r = processLogout(createMessage(TMESS_LOGOUT), &testClient, &c, "TEST1")
