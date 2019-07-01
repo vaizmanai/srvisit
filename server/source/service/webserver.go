@@ -39,6 +39,7 @@ func HttpServer() {
 
 	apiAdmin := apiRouter.PathPrefix("/admin").Subrouter()
 	apiAdmin.Handle("/clients", checkAdmin(api.HandleGetClientsList)).Methods("GET")
+	apiAdmin.Handle("/profiles", checkAdmin(api.HandleGetProfileList)).Methods("GET")
 	apiAdmin.Handle("/log", checkAdmin(api.HandleGetLog)).Methods("GET")
 	apiAdmin.Handle("/log", checkAdmin(api.HandleDelLog)).Methods("DELETE")
 

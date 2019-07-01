@@ -3,6 +3,7 @@ package api
 import (
 	"../common"
 	"../component/client"
+	"../component/profile"
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
@@ -12,7 +13,18 @@ import (
 func HandleGetClientsList(w http.ResponseWriter, r *http.Request) {
 	b, err := json.Marshal(client.GetAllClientsList())
 	if err != nil {
-		common.LogAdd(common.MessError, "handleAdminTest: "+err.Error())
+		common.LogAdd(common.MessError, "HandleGetClientsList: "+err.Error())
+		http.Error(w, "couldn't service this request", http.StatusInternalServerError)
+		return
+	}
+
+	w.Write(b)
+}
+
+func HandleGetProfileList(w http.ResponseWriter, r *http.Request) {
+	b, err := json.Marshal(profile.GetProfileList())
+	if err != nil {
+		common.LogAdd(common.MessError, "HandleGetProfileList: "+err.Error())
 		http.Error(w, "couldn't service this request", http.StatusInternalServerError)
 		return
 	}

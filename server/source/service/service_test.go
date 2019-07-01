@@ -7,7 +7,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/stretchr/testify/require"
+	"io/ioutil"
 	"net"
+	"net/http"
 	"strings"
 	"sync"
 	"testing"
@@ -341,7 +343,8 @@ func TestStaticProcessing(t *testing.T) {
 
 	fmt.Println("---------------------------------------------")
 
-	//testThreadClient(t)
+	testThreadClient(t)
+	testWebThreads(t)
 }
 
 func testProfile(t *testing.T, testClient net.Conn, c client.Client, email string) {
@@ -611,6 +614,70 @@ func testProfile(t *testing.T, testClient net.Conn, c client.Client, email strin
 
 }
 
+func testWebThreads(t *testing.T) {
+	go HttpServer()
+
+	countThread := 1000
+	done := make(chan bool)
+
+	time.Sleep(time.Second)
+
+	fail := false
+	var mutex sync.Mutex
+
+	for i := 0; i < countThread; i++ {
+
+		go func() {
+			r := creationWebClient()
+			if !r {
+				mutex.Lock()
+				fail = true
+				mutex.Unlock()
+			}
+			done <- true
+		}()
+
+	}
+
+	for i := 0; i < countThread; i++ {
+		<-done
+	}
+
+	require.True(t, fail == false)
+}
+
+func creationWebClient() bool {
+	testMethods := []string{"GET", "POST", "DELETE", "PUT", "OPTIONS"}
+	testNewRequests := []string{"/", "/v2/api", "/v2/api/auth", "/v2/api/client", "/v2/api/clients", "/v2/api/profiles"}
+
+	method := testMethods[common.RandInt(0, len(testMethods))]
+	url := testNewRequests[common.RandInt(0, len(testNewRequests))]
+	desc := method + " " + url
+
+	r, err := http.NewRequest(method, "http://127.0.0.1:"+fmt.Sprint(common.Options.HttpServerPort)+url, nil)
+	if err != nil {
+		fmt.Println("WEB ERROR" + desc + ": " + err.Error())
+		return false
+	}
+
+	client := http.Client{}
+	resp, err := client.Do(r)
+	if err != nil {
+		fmt.Println("WEB ERROR" + desc + ": " + err.Error())
+		return false
+	}
+
+	b, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Println("WEB ERROR" + desc + ": " + err.Error())
+		return false
+	}
+
+	fmt.Println(desc + ": " + resp.Status + " - " + string(b))
+
+	return true
+}
+
 func creationClient() bool {
 	serial := common.RandomString(common.LengthSalt)
 
@@ -640,7 +707,6 @@ func testThreadClient(t *testing.T) {
 
 	go MainServer()
 	go DataServer()
-	go HttpServer()
 
 	time.Sleep(time.Second)
 
