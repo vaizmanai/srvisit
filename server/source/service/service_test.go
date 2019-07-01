@@ -207,15 +207,19 @@ func TestStaticProcessing(t *testing.T) {
 
 	//--------------
 
-	processVersion(createMessage(TMESS_VERSION, "2.0"), nil, &c, "TEST")
+	//успешный
+	r := processVersion(createMessage(TMESS_VERSION, "2.0"), nil, &c, "TEST")
 	require.True(t, c.Version == "2.0")
+	require.True(t, r == true)
 
-	r := processVersion(createMessage(TMESS_VERSION, "3.0", "123"), nil, &c, "TEST") //wrong arg count
+	//не правильное кол-во полей
+	r = processVersion(createMessage(TMESS_VERSION, "3.0", "123"), nil, &c, "TEST") //wrong arg count
 	require.True(t, c.Version == "2.0")
 	require.True(t, r == false)
 
 	//--------------
 
+	//проверяем что тестовый клиент работает
 	c.Version = "0.0"
 	var testClient net.Conn = &TestClient{}
 	require.True(t, testClient.SetDeadline(time.Now()) == nil)
@@ -224,79 +228,100 @@ func TestStaticProcessing(t *testing.T) {
 	require.True(t, testClient.Close() == nil)
 	a, b := testClient.Read([]byte{})
 	c.Conn = &testClient
-
 	require.True(t, a == 0 && b == nil)
 	testClient.(*TestClient).Error("test client")
 	require.True(t, testClient.(*TestClient).Check() == false)
 	require.True(t, testClient.LocalAddr().String() != testClient.RemoteAddr().String())
 	require.True(t, testClient.LocalAddr().Network() != testClient.RemoteAddr().Network())
 
+	//не правильное кол-во полей
 	r = processAuth(createMessage(TMESS_AUTH), &testClient, &c, "TEST1")
 	require.True(t, testClient.(*TestClient).Check())
 	require.True(t, r == false)
 
+	//слабый serial
 	r = processAuth(createMessage(TMESS_AUTH, "0"), &testClient, &c, "TEST1")
-	require.True(t, testClient.(*TestClient).Check()) //todo переделать на проверку возврата error
+	require.True(t, testClient.(*TestClient).Check())
 	require.True(t, testClient.(*TestClient).DeAuthSuccess == true)
 	require.True(t, r == false)
 
 	serial := common.RandomString(common.LengthSalt)
 	pid := common.GetPid(serial)
 
+	//успешный
 	r = processAuth(createMessage(TMESS_AUTH, serial), &testClient, &c, "TEST2")
 	require.True(t, testClient.(*TestClient).Check())
 	require.True(t, testClient.(*TestClient).AuthSuccess == true)
+	code, mess := testClient.(*TestClient).Last()
+	require.True(t, code == TMESS_AUTH && mess[0] == pid)
 
+	//не правильное кол-во полей
 	r = processNotification(createMessage(TMESS_NOTIFICATION, "test notify"), &testClient, &c, "TEST1")
 	require.True(t, testClient.(*TestClient).Check())
 	require.True(t, testClient.(*TestClient).NotificationSuccess == false)
 	require.True(t, r == false)
 
+	//успешный
 	r = processNotification(createMessage(TMESS_NOTIFICATION, pid, "test notify"), &testClient, &c, "TEST2")
 	require.True(t, testClient.(*TestClient).Check())
 	require.True(t, testClient.(*TestClient).NotificationSuccess == true)
 	require.True(t, r == true)
+	code, mess = testClient.(*TestClient).Last()
+	require.True(t, code == TMESS_NOTIFICATION && mess[0] == "test notify")
 
+	//не правильное кол-во полей
 	r = processConnect(createMessage(TMESS_REQUEST, ""), &testClient, &c, "TEST1")
 	require.True(t, testClient.(*TestClient).Check())
 	require.True(t, testClient.(*TestClient).ReqSuccess == false)
 	require.True(t, r == false)
 
+	//нет такого пира
 	r = processConnect(createMessage(TMESS_REQUEST, "000:000:000", "salt", "digest", "address"), &testClient, &c, "TEST2")
 	require.True(t, testClient.(*TestClient).Check())
 	require.True(t, testClient.(*TestClient).ReqSuccess == false)
 	require.True(t, r == false)
+	code, mess = testClient.(*TestClient).Last()
+	require.True(t, code == TMESS_NOTIFICATION && mess[0] == "Нет такого пира")
 
+	//успешный
 	r = processConnect(createMessage(TMESS_REQUEST, pid, "salt", "digest", "address"), &testClient, &c, "TEST3")
 	require.True(t, testClient.(*TestClient).Check())
 	require.True(t, testClient.(*TestClient).ReqSuccess == true)
 	require.True(t, r == true)
+	code, mess = testClient.(*TestClient).Last()
+	require.True(t, code == TMESS_CONNECT && mess[0] == "salt" && mess[1] == "digest" && mess[5] == pid)
 
-	r = processPing(createMessage(TMESS_PING), &testClient, &c, "TEST") //сервер ничего не отвечает на пинг
+	//сервер ничего не отвечает на пинг
+	r = processPing(createMessage(TMESS_PING), &testClient, &c, "TEST")
 	require.True(t, testClient.(*TestClient).Check())
 	require.True(t, r == true)
 
+	//не правильное кол-во полей
 	r = processDisconnect(createMessage(TMESS_DISCONNECT), &testClient, &c, "TEST1")
 	require.True(t, testClient.(*TestClient).Check())
 	require.True(t, r == false)
 
+	//пустой ид
 	r = processDisconnect(createMessage(TMESS_DISCONNECT, ""), &testClient, &c, "TEST2")
 	require.True(t, testClient.(*TestClient).Check())
 	require.True(t, r == false)
 
+	//пробует отключить, то что нет такого соединения не считаем ошибкой и никому ничего не шлем
 	r = processDisconnect(createMessage(TMESS_DISCONNECT, "000:000:000"), &testClient, &c, "TEST3")
 	require.True(t, testClient.(*TestClient).Check())
-	require.True(t, r == true) //пробует отключить, то что нет такого соединения не считаем ошибкой
+	require.True(t, r == true)
 
 	r = processDisconnect(createMessage(TMESS_DISCONNECT, testClient.(*TestClient).TestConnectCode, "0"), &testClient, &c, "TEST4")
 	require.True(t, testClient.(*TestClient).Check())
 	require.True(t, r == true)
 
+	//не правильное кол-во полей
 	r = processReg(createMessage(TMESS_REG), &testClient, &c, "TEST")
 	require.True(t, testClient.(*TestClient).Check())
 	require.True(t, testClient.(*TestClient).RegSuccess == false)
 	require.True(t, r == false)
 
+	//успешный
 	email := strings.ToLower(common.RandomString(common.LengthSalt) + "@mail.net")
 	r = processReg(createMessage(TMESS_REG, email), &testClient, &c, "TEST")
 	require.True(t, testClient.(*TestClient).Check())
@@ -305,6 +330,8 @@ func TestStaticProcessing(t *testing.T) {
 	require.True(t, p != nil)
 	require.True(t, p.Pass == common.PredefinedPass)
 	require.True(t, r == true)
+	code, mess = testClient.(*TestClient).Last()
+	require.True(t, code == TMESS_NOTIFICATION && mess[0] == "Учетная запись создана, Ваш пароль на почте!")
 
 	c.Version = "0.4"
 	testProfile(t, testClient, c, email)
@@ -321,6 +348,7 @@ func testProfile(t *testing.T, testClient net.Conn, c client.Client, email strin
 	testClient.(*TestClient).ResetFlags()
 	profile.GetProfile(email).Contacts = nil
 
+	//не правильное кол-во полей
 	r := processLogin(createMessage(TMESS_LOGIN), &testClient, &c, "TEST1")
 	require.True(t, testClient.(*TestClient).Check())
 	require.True(t, testClient.(*TestClient).LoginSuccess == false)
@@ -330,6 +358,13 @@ func testProfile(t *testing.T, testClient net.Conn, c client.Client, email strin
 	require.True(t, testClient.(*TestClient).Check())
 	require.True(t, testClient.(*TestClient).LoginSuccess == false)
 	require.True(t, r == true)
+	code, mess := testClient.(*TestClient).Last()
+	fmt.Println(c.Version)
+	if c.GreaterVersionThan(common.MinimalVersionForStaticAlert) {
+		require.True(t, code == TMESS_STANDART_ALERT && mess[0] == fmt.Sprint(common.StaticMessageAuthFail))
+	} else {
+		require.True(t, code == TMESS_NOTIFICATION && mess[0] == "Авторизация профиля провалилась!")
+	}
 
 	r = processLogin(createMessage(TMESS_LOGIN, email, common.GetSHA256(common.PredefinedPass+c.Salt)), &testClient, &c, "TEST3")
 	require.True(t, testClient.(*TestClient).Check())
@@ -337,6 +372,8 @@ func testProfile(t *testing.T, testClient net.Conn, c client.Client, email strin
 	require.True(t, testClient.(*TestClient).ContactsSuccess == true)
 	require.True(t, len(client.GetAuthorizedClientList(email)) == 1)
 	require.True(t, r == true)
+	code, mess = testClient.(*TestClient).Last()
+	require.True(t, code == TMESS_CONTACTS) //шлем сначала LOGIN и сразу контакты
 
 	r = processLogout(createMessage(TMESS_LOGOUT), &testClient, &c, "TEST1")
 	require.True(t, testClient.(*TestClient).Check())
@@ -469,7 +506,7 @@ func testProfile(t *testing.T, testClient net.Conn, c client.Client, email strin
 	r = processInfoContact(createMessage(TMESS_INFO_CONTACT, "9"), &testClient, &c, "TEST3")
 	require.True(t, testClient.(*TestClient).Check())
 	require.True(t, r == true)
-	code, mess := testClient.(*TestClient).Last()
+	code, mess = testClient.(*TestClient).Last()
 	if c.GreaterVersionThan(common.MinimalVersionForStaticAlert) {
 		require.True(t, code == TMESS_STANDART_ALERT && mess[0] == fmt.Sprint(common.StaticMessageAbsentError))
 	} else {
