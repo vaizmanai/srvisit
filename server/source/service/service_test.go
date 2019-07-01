@@ -362,8 +362,22 @@ func testProfile(t *testing.T, testClient net.Conn, c client.Client, email strin
 	testClient.(*TestClient).ResetFlags()
 	profile.GetProfile(email).Contacts = nil
 
+	//успешный
+	common.Options.ServerSMTP = "smtp.gmail.com"
+	email1 := strings.ToLower(common.RandomString(common.LengthSalt) + "@mail.net")
+	r := processReg(createMessage(TMESS_REG, email1), &testClient, &c, "TEST")
+	require.True(t, testClient.(*TestClient).Check())
+	require.True(t, testClient.(*TestClient).RegSuccess == false)
+	code, mess := testClient.(*TestClient).Last()
+	if c.GreaterVersionThan(common.MinimalVersionForStaticAlert) {
+		require.True(t, code == TMESS_STANDART_ALERT && mess[0] == fmt.Sprint(common.StaticMessageRegMail))
+	} else {
+		require.True(t, code == TMESS_NOTIFICATION && mess[0] == "Не удалось отправить письмо с паролем!")
+	}
+	require.True(t, profile.GetProfile(email1) == nil)
+
 	//не правильное кол-во полей
-	r := processLogin(createMessage(TMESS_LOGIN), &testClient, &c, "TEST1")
+	r = processLogin(createMessage(TMESS_LOGIN), &testClient, &c, "TEST1")
 	require.True(t, testClient.(*TestClient).Check())
 	require.True(t, testClient.(*TestClient).LoginSuccess == false)
 	require.True(t, r == false)
@@ -372,7 +386,7 @@ func testProfile(t *testing.T, testClient net.Conn, c client.Client, email strin
 	require.True(t, testClient.(*TestClient).Check())
 	require.True(t, testClient.(*TestClient).LoginSuccess == false)
 	require.True(t, r == true)
-	code, mess := testClient.(*TestClient).Last()
+	code, mess = testClient.(*TestClient).Last()
 	if c.GreaterVersionThan(common.MinimalVersionForStaticAlert) {
 		require.True(t, code == TMESS_STANDART_ALERT && mess[0] == fmt.Sprint(common.StaticMessageAuthFail))
 	} else {
@@ -538,6 +552,26 @@ func testProfile(t *testing.T, testClient net.Conn, c client.Client, email strin
 		require.True(t, code == TMESS_NOTIFICATION && mess[0] == "Нет такого контакта в сети!")
 	}
 
+	r = processInfoContact(createMessage(TMESS_INFO_CONTACT, "-1"), &testClient, &c, "TEST7")
+	require.True(t, testClient.(*TestClient).Check())
+	require.True(t, r == true)
+	code, mess = testClient.(*TestClient).Last()
+	if c.GreaterVersionThan(common.MinimalVersionForStaticAlert) {
+		require.True(t, code == TMESS_STANDART_ALERT && mess[0] == fmt.Sprint(common.StaticMessageAbsentError))
+	} else {
+		require.True(t, code == TMESS_NOTIFICATION && mess[0] == "Нет такого контакта в профиле!")
+	}
+
+	r = processInfoContact(createMessage(TMESS_INFO_CONTACT, "a123"), &testClient, &c, "TEST7")
+	require.True(t, testClient.(*TestClient).Check())
+	require.True(t, r == true)
+	code, mess = testClient.(*TestClient).Last()
+	if c.GreaterVersionThan(common.MinimalVersionForStaticAlert) {
+		require.True(t, code == TMESS_STANDART_ALERT && mess[0] == fmt.Sprint(common.StaticMessageAbsentError))
+	} else {
+		require.True(t, code == TMESS_NOTIFICATION && mess[0] == "Ошибка преобразования идентификатора!")
+	}
+
 	//нет такого контакта в профиле
 	r = processManage(createMessage(TMESS_MANAGE, "0", "2"), &testClient, &c, "TEST4")
 	require.True(t, testClient.(*TestClient).Check())
@@ -547,6 +581,17 @@ func testProfile(t *testing.T, testClient net.Conn, c client.Client, email strin
 		require.True(t, code == TMESS_STANDART_ALERT && mess[0] == fmt.Sprint(common.StaticMessageAbsentError))
 	} else {
 		require.True(t, code == TMESS_NOTIFICATION && mess[0] == "Нет такого контакта в профиле!")
+	}
+
+	//ошибка индекса
+	r = processManage(createMessage(TMESS_MANAGE, "a123", "2"), &testClient, &c, "TEST4")
+	require.True(t, testClient.(*TestClient).Check())
+	require.True(t, r == true)
+	code, mess = testClient.(*TestClient).Last()
+	if c.GreaterVersionThan(common.MinimalVersionForStaticAlert) {
+		require.True(t, code == TMESS_STANDART_ALERT && mess[0] == fmt.Sprint(common.StaticMessageAbsentError))
+	} else {
+		require.True(t, code == TMESS_NOTIFICATION && mess[0] == "Ошибка преобразования идентификатора!")
 	}
 
 	r = processConnectContact(createMessage(TMESS_CONNECT_CONTACT, "1"), &testClient, &c, "TEST1")
@@ -578,6 +623,12 @@ func testProfile(t *testing.T, testClient net.Conn, c client.Client, email strin
 	} else {
 		require.True(t, code == TMESS_NOTIFICATION && mess[0] == "Ошибка преобразования идентификатора!")
 	}
+
+	r = processContactReverse(createMessage(TMESS_CONTACT_REVERSE, email, common.GetSHA256(profile.GetProfile(email).Pass+c.Salt), "a123"), &testClient, &c, "TEST7")
+	require.True(t, testClient.(*TestClient).Check())
+	require.True(t, r == true)
+	code, mess = testClient.(*TestClient).Last()
+	require.True(t, code == TMESS_STATUS && testClient.(*TestClient).TestContactId == mess[0] && mess[1] == "1")
 
 	r = processLogout(createMessage(TMESS_LOGOUT), &testClient, &c, "TEST1")
 	require.True(t, testClient.(*TestClient).Check())
@@ -674,6 +725,16 @@ func testProfile(t *testing.T, testClient net.Conn, c client.Client, email strin
 	r = processInfoAnswer(createMessage(TMESS_INFO_ANSWER), &testClient, &c, "TEST1")
 	require.True(t, testClient.(*TestClient).Check())
 	require.True(t, r == false)
+
+	r = processInfoAnswer(createMessage(TMESS_INFO_ANSWER, "111:111:222:345"), &testClient, &c, "TEST1")
+	require.True(t, testClient.(*TestClient).Check())
+	require.True(t, r == true)
+	code, mess = testClient.(*TestClient).Last()
+	if c.GreaterVersionThan(common.MinimalVersionForStaticAlert) {
+		require.True(t, code == TMESS_STANDART_ALERT && mess[0] == fmt.Sprint(common.StaticMessageAbsentError))
+	} else {
+		require.True(t, code == TMESS_NOTIFICATION && mess[0] == "Нет такого контакта в сети!")
+	}
 
 	//--------
 

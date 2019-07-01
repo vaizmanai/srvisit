@@ -230,12 +230,14 @@ func processReg(message Message, conn *net.Conn, curClient *Client, id string) b
 			msg := "Subject: Information from reVisit\r\n\r\nYour password is " + newProfile.Pass + "\r\n"
 			success, err := SendEmail(message.Messages[0], msg)
 			if !success {
+				DelProfile(newProfile.Email)
 				LogAdd(MessError, id+" не удалось отправить письмо с паролем: "+fmt.Sprint(err))
 				if curClient.GreaterVersionThan(MinimalVersionForStaticAlert) {
 					sendMessage(conn, TMESS_STANDART_ALERT, fmt.Sprint(StaticMessageRegMail))
 				} else {
 					sendMessage(conn, TMESS_NOTIFICATION, "Не удалось отправить письмо с паролем!") //todo удалить
 				}
+				return false
 			}
 		} else {
 			newProfile.Pass = PredefinedPass
