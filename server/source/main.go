@@ -1,7 +1,7 @@
 package main
 
 import (
-	. "./common"
+	"./common"
 	"./component/profile"
 	"./service"
 	"fmt"
@@ -15,22 +15,22 @@ import (
 func main() {
 	for _, x := range os.Args {
 		if strings.Contains(x, "node") {
-			Options.Mode = ModeNode
+			common.Options.Mode = common.ModeNode
 		} else if strings.Contains(x, "master") {
-			Options.Mode = ModeMaster
+			common.Options.Mode = common.ModeMaster
 		}
 	}
 
-	LogAdd(MessInfo, "Запускается сервер reVisit версии "+ReVisitVersion)
+	common.LogAdd(common.MessInfo, "Запускается сервер reVisit версии "+ReVisitVersion)
 
 	runtime.GOMAXPROCS(runtime.NumCPU())
 	rand.Seed(time.Now().UTC().UnixNano())
 
-	LoadOptions()
+	common.LoadOptions()
 
-	if Options.Mode != ModeNode {
+	if common.Options.Mode != common.ModeNode {
 		service.LoadVNCList()
-		LoadCounters()
+		common.LoadCounters()
 		profile.LoadProfiles()
 
 		go service.HelperThread() //используем для периодических действий(сохранения и т.п.)
@@ -40,23 +40,23 @@ func main() {
 
 	service.UpdateMyIP()
 
-	if Options.Mode != ModeMaster {
+	if common.Options.Mode != common.ModeMaster {
 		go service.DataServer() //обработка потоков данных от клиентов
 	}
 
-	if Options.Mode == ModeMaster {
+	if common.Options.Mode == common.ModeMaster {
 		go service.MasterServer() //общаемся с агентами
 	}
 
-	if Options.Mode == ModeNode {
+	if common.Options.Mode == common.ModeNode {
 		go service.NodeClient() //клинет подключающийся к мастеру
 	}
 
 	var r string
 	for r != "quit" {
 		fmt.Scanln(&r)
-		time.Sleep(time.Millisecond * WaitIdle) //если запустить без консоли, то здесь цикл со 100% загрузкой процессора
+		time.Sleep(time.Millisecond * common.WaitIdle) //если запустить без консоли, то здесь цикл со 100% загрузкой процессора
 	}
 
-	LogAdd(MessInfo, "Завершили работу")
+	common.LogAdd(common.MessInfo, "Завершили работу")
 }

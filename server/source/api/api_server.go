@@ -10,6 +10,7 @@ import (
 	"os"
 )
 
+//Getting full online clients list
 func HandleGetClientsList(w http.ResponseWriter, r *http.Request) {
 	b, err := json.Marshal(client.GetAllClientsList())
 	if err != nil {
@@ -21,6 +22,7 @@ func HandleGetClientsList(w http.ResponseWriter, r *http.Request) {
 	w.Write(b)
 }
 
+//Getting full profiles list
 func HandleGetProfileList(w http.ResponseWriter, r *http.Request) {
 	b, err := json.Marshal(profile.GetProfileList())
 	if err != nil {
@@ -32,6 +34,7 @@ func HandleGetProfileList(w http.ResponseWriter, r *http.Request) {
 	w.Write(b)
 }
 
+//Getting content of log file
 func HandleGetLog(w http.ResponseWriter, r *http.Request) {
 	common.LogAdd(common.MessInfo, "WEB Запрос log")
 	file, err := os.Open(common.LogFilename)
@@ -50,6 +53,7 @@ func HandleGetLog(w http.ResponseWriter, r *http.Request) {
 	w.Write(log)
 }
 
+//Clear log file
 func HandleDelLog(w http.ResponseWriter, r *http.Request) {
 	common.LogAdd(common.MessInfo, "WEB Запрос очистки log")
 	common.ClearLog()
