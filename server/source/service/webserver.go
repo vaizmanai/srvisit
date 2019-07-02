@@ -141,11 +141,11 @@ func handleAuth(w http.ResponseWriter, r *http.Request) {
 			if webIp != clientIp {
 				continue
 			}
+      
 			cookie_pid := http.Cookie{Name: "abc", Value: pid, Expires: time.Now().Add(WebSessionTimeoutHour * time.Hour)}
 			cookie_token := http.Cookie{Name: "cba", Value: token, Expires: time.Now().Add(WebSessionTimeoutHour * time.Hour)}
 			http.SetCookie(w, &cookie_pid)
 			http.SetCookie(w, &cookie_token)
-
 			http.Redirect(w, r, destination, http.StatusTemporaryRedirect)
 			return
 		}
