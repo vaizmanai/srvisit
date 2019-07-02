@@ -21,7 +21,7 @@ func main() {
 		}
 	}
 
-	common.LogAdd(common.MessInfo, "Запускается сервер reVisit версии "+ReVisitVersion)
+	common.LogAdd(common.MessInfo, "Запускается сервер reVisit версии "+common.ReVisitVersion)
 
 	runtime.GOMAXPROCS(runtime.NumCPU())
 	rand.Seed(time.Now().UTC().UnixNano())
