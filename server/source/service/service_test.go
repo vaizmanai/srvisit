@@ -255,6 +255,7 @@ func TestStaticProcessing(t *testing.T) {
 	require.True(t, testClient.(*TestClient).Check())
 	require.True(t, testClient.(*TestClient).AuthSuccess == true)
 	code, mess := testClient.(*TestClient).Last()
+	require.True(t, r == true)
 	require.True(t, code == TMESS_AUTH && mess[0] == pid)
 
 	//не правильное кол-во полей
@@ -340,6 +341,7 @@ func TestStaticProcessing(t *testing.T) {
 	require.True(t, testClient.(*TestClient).Check())
 	require.True(t, testClient.(*TestClient).RegSuccess == true)
 	code, mess = testClient.(*TestClient).Last()
+	require.True(t, r == true)
 	if c.GreaterVersionThan(common.MinimalVersionForStaticAlert) {
 		require.True(t, code == TMESS_STANDART_ALERT && mess[0] == fmt.Sprint(common.StaticMessageRegFail))
 	} else {
@@ -377,7 +379,7 @@ func testProfile(t *testing.T, testClient net.Conn, c *client.Client, email stri
 	require.True(t, profile.GetProfile(email1) == nil)
 
 	time.Sleep(time.Second)
-	
+
 	//не правильное кол-во полей
 	r = processLogin(createMessage(TMESS_LOGIN), &testClient, c, "TEST1")
 	require.True(t, testClient.(*TestClient).Check())
@@ -401,7 +403,7 @@ func testProfile(t *testing.T, testClient net.Conn, c *client.Client, email stri
 	require.True(t, testClient.(*TestClient).ContactsSuccess == true)
 	require.True(t, len(client.GetAuthorizedClientList(email)) == 1)
 	require.True(t, r == true)
-	code, mess = testClient.(*TestClient).Last()
+	code, _ = testClient.(*TestClient).Last()
 	require.True(t, code == TMESS_CONTACTS) //шлем сначала LOGIN и сразу контакты
 
 	r = processLogout(createMessage(TMESS_LOGOUT), &testClient, c, "TEST1")
@@ -515,7 +517,7 @@ func testProfile(t *testing.T, testClient net.Conn, c *client.Client, email stri
 	//--------
 
 	r = processContact(createMessage(TMESS_CONTACT, cont3, "cont", "cont3moved", "333:333:333:333", "digest3", group1), &testClient, c, "TEST5")
-	bytes, error = json.Marshal(*c.Profile.Contacts)
+	bytes, _ = json.Marshal(*c.Profile.Contacts)
 	require.True(t, testClient.(*TestClient).Check())
 	require.True(t, r == true)
 	testContactsString3 := `{"Id":16,"Caption":"cont5","Type":"cont","Pid":"555:555:555:555","Digest":"digest5","Salt":"JJPJZPFRFEGMOTAF","Inner":null,"Next":{"Id":15,"Caption":"group4","Type":"fold","Pid":"","Digest":"","Salt":"","Inner":null,"Next":{"Id":6,"Caption":"group2","Type":"fold","Pid":"","Digest":"","Salt":"","Inner":{"Id":7,"Caption":"group3","Type":"fold","Pid":"","Digest":"","Salt":"","Inner":null,"Next":null},"Next":{"Id":1,"Caption":"group1","Type":"fold","Pid":"","Digest":"","Salt":"","Inner":{"Id":9,"Caption":"cont3moved","Type":"cont","Pid":"333:333:333:333","Digest":"digest3","Salt":"JJPJZPFRFEGMOTAF","Inner":null,"Next":{"Id":4,"Caption":"cont2","Type":"cont","Pid":"222:222:222:222","Digest":"digest2","Salt":"JJPJZPFRFEGMOTAF","Inner":null,"Next":{"Id":2,"Caption":"cont1","Type":"cont","Pid":"111:111:111:111","Digest":"digest1","Salt":"JJPJZPFRFEGMOTAF","Inner":null,"Next":null}}},"Next":null}}}}`
@@ -524,14 +526,14 @@ func testProfile(t *testing.T, testClient net.Conn, c *client.Client, email stri
 	//--------
 
 	r = processContact(createMessage(TMESS_CONTACT, cont3, "cont", "cont3root", "333:333:333:333", "digest3", "12345"), &testClient, c, "TEST5")
-	bytes, error = json.Marshal(*c.Profile.Contacts)
+	bytes, _ = json.Marshal(*c.Profile.Contacts)
 	require.True(t, testClient.(*TestClient).Check())
 	require.True(t, r == true)
 	testContactsString5 := `{"Id":9,"Caption":"cont3root","Type":"cont","Pid":"333:333:333:333","Digest":"digest3","Salt":"JJPJZPFRFEGMOTAF","Inner":null,"Next":{"Id":16,"Caption":"cont5","Type":"cont","Pid":"555:555:555:555","Digest":"digest5","Salt":"JJPJZPFRFEGMOTAF","Inner":null,"Next":{"Id":15,"Caption":"group4","Type":"fold","Pid":"","Digest":"","Salt":"","Inner":null,"Next":{"Id":6,"Caption":"group2","Type":"fold","Pid":"","Digest":"","Salt":"","Inner":{"Id":7,"Caption":"group3","Type":"fold","Pid":"","Digest":"","Salt":"","Inner":null,"Next":null},"Next":{"Id":1,"Caption":"group1","Type":"fold","Pid":"","Digest":"","Salt":"","Inner":{"Id":4,"Caption":"cont2","Type":"cont","Pid":"222:222:222:222","Digest":"digest2","Salt":"JJPJZPFRFEGMOTAF","Inner":null,"Next":{"Id":2,"Caption":"cont1","Type":"cont","Pid":"111:111:111:111","Digest":"digest1","Salt":"JJPJZPFRFEGMOTAF","Inner":null,"Next":null}},"Next":null}}}}}`
 	require.True(t, testContactsString5 == string(bytes))
 
 	r = processContact(createMessage(TMESS_CONTACT, cont3, "cont", "cont3root", "333:333:333:333", "digest3", "a123"), &testClient, c, "TEST5")
-	bytes, error = json.Marshal(*c.Profile.Contacts)
+	bytes, _ = json.Marshal(*c.Profile.Contacts)
 	require.True(t, testClient.(*TestClient).Check())
 	require.True(t, r == true)
 	code, mess = testClient.(*TestClient).Last()

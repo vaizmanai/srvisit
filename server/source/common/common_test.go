@@ -23,3 +23,23 @@ func TestStaticCommon(t *testing.T) {
 	sent, _ := SendEmail("", "")
 	require.True(t, sent == false)
 }
+
+func TestOptions(t *testing.T) {
+	test := Options
+
+	SaveOptions()
+	LoadOptions()
+	require.True(t, Options == test)
+
+	Options.ServerSMTP = "54321"
+	Options.MasterPort = "12345"
+	Options.Version = "2.1"
+	Options.MasterPassword = "password"
+	Options.Hostname = "host"
+	Options.AdminLogin = "aaa"
+	Options.AdminPass = "bbb"
+	require.True(t, Options != test)
+
+	LoadOptions()
+	require.True(t, Options == test)
+}

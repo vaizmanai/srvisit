@@ -2,7 +2,7 @@ package profile
 
 import (
 	"../../common"
-	. "../contact"
+	"../contact"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -11,17 +11,16 @@ import (
 )
 
 var (
-	//карта учеток
 	profiles sync.Map
 	mutex    sync.Mutex
 )
 
-//тип для профиля
+//Profile is base structure for storing contacts
 type Profile struct {
 	Email string
 	Pass  string
 
-	Contacts      *Contact
+	Contacts      *contact.Contact
 	contactsMutex sync.Mutex
 
 	//всякая информация
