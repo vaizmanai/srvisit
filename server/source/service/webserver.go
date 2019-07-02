@@ -12,7 +12,7 @@ import (
 )
 
 func HttpServer() {
-	myRouter := mux.NewRouter().StrictSlash(false)
+	myRouter := mux.NewRouter().StrictSlash(true)
 
 	//-----------------------
 
@@ -135,7 +135,7 @@ func handleAuth(w http.ResponseWriter, r *http.Request) {
 
 	list := GetClientsList(pid)
 	for _, c := range list {
-		if c.Token == token { //todo add checking ip
+		if c.Token == token {
 			clientIp, _, _ := net.SplitHostPort((*c.Conn).RemoteAddr().String())
 			webIp, _, _ := net.SplitHostPort(r.RemoteAddr)
 			if webIp != clientIp {
