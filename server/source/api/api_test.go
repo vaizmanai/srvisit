@@ -63,7 +63,7 @@ func TestStaticApi(t *testing.T) {
 	profile.NewProfile("test@mail.net")
 	HandleGetProfileList(w, r)
 	fmt.Println(string(w.test))
-	require.True(t, string(w.test) == `[{"Email":"test@mail.net","Pass":"","Contacts":null,"Capt":"","Tel":"","Logo":""}]`)
+	require.True(t, string(w.test) == `[{"Email":"test@mail.net","Pass":"","Contacts":null,"Capt":"","Tel":"","Logo":"","Last":"0001-01-01T00:00:00Z"}]`)
 
 	test := client.Client{Pid: "1234567890"}
 	test.StoreClient()
@@ -75,6 +75,6 @@ func TestStaticApi(t *testing.T) {
 
 	HandleGetClient(w, r, &test)
 	fmt.Println(string(w.test))
-	require.True(t, string(w.test) == `{"Serial":"","Pid":"1234567890","Pass":"","Version":"","Salt":"","Profile":null,"Token":"","Conn":null,"Code":""}`)
+	require.True(t, string(w.test) == `{"Serial":"*","Pid":"1234567890","Pass":"*","Version":"","Salt":"*","Profile":null,"Token":"*","Conn":null,"Code":"*"}`)
 
 }

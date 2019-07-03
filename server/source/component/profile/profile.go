@@ -41,7 +41,10 @@ func (profile *Profile) Unlock() {
 	profile.contactsMutex.Unlock()
 }
 
-func (profile *Profile)UpdateLastLogin(){
+func (profile *Profile) UpdateLastLogin() {
+	if profile == nil {
+		return
+	}
 	profile.contactsMutex.Lock()
 	profile.Last = time.Now()
 	profile.contactsMutex.Unlock()
