@@ -21,6 +21,23 @@ const (
 	wsMessage = 1
 )
 
+//Getting authorized client info
+func HandleGetClient(w http.ResponseWriter, r *http.Request, client *client.Client) {
+	tmp := *client
+	tmp.Pass = "*"
+	tmp.Serial = "*"
+	tmp.Salt = "*"
+	tmp.Code = "*"
+	tmp.Token = "*"
+	b, err := json.Marshal(client)
+	if err != nil {
+		common.LogAdd(common.MessError, "handleGetClient: "+err.Error())
+		http.Error(w, "couldn't service this request", http.StatusInternalServerError)
+		return
+	}
+	w.Write(b)
+}
+
 type websocketMessage struct {
 	Type int
 	Data string
@@ -32,15 +49,79 @@ type chatMessage struct {
 	Text string
 }
 
-//Getting authorized client info
-func HandleGetClient(w http.ResponseWriter, r *http.Request, client *client.Client) {
-	b, err := json.Marshal(client)
-	if err != nil {
-		common.LogAdd(common.MessError, "handleGetClient: "+err.Error())
-		http.Error(w, "couldn't service this request", http.StatusInternalServerError)
-		return
+type wsClient struct {
+	mutex  sync.RWMutex
+	ws     *websocket.Conn
+	client *client.Client
+}
+
+var (
+	//wsClients[Pid] = []*wsClient
+	wsClients      map[string][]*wsClient
+	wsClientsMutex sync.RWMutex
+)
+
+func init() {
+	wsClients = make(map[string][]*wsClient, 0)
+}
+
+func (curWsClient *wsClient) storeWsClient() {
+	pid := common.CleanPid(curWsClient.client.Pid)
+	wsClientsMutex.Lock()
+
+	list := wsClients[pid]
+	if list == nil {
+		list = make([]*wsClient, 0)
 	}
-	w.Write(b)
+
+	list = append(list, curWsClient)
+	wsClients[pid] = list
+
+	wsClientsMutex.Unlock()
+}
+
+func (curWsClient *wsClient) removeWsClient() {
+	pid := common.CleanPid(curWsClient.client.Pid)
+	wsClientsMutex.Lock()
+
+	list := wsClients[pid]
+	if list != nil {
+		for i := 0; i < len(list); {
+			if list[i] == curWsClient {
+				if len(list) == 1 {
+					list = make([]*wsClient, 0)
+					break
+				}
+
+				list = append(list[:i], list[i+1:]...)
+				continue
+			}
+			i++
+		}
+	}
+	wsClients[pid] = list
+
+	wsClientsMutex.Unlock()
+}
+
+func (curWsClient *wsClient) SendJSON(v interface{}) error {
+	curWsClient.mutex.Lock()
+	err := curWsClient.ws.WriteJSON(v)
+	curWsClient.mutex.Unlock()
+	return err
+}
+
+func GetWsClient(pid string) []*wsClient {
+	pid = common.CleanPid(pid)
+
+	wsClientsMutex.RLock()
+	list := wsClients[pid]
+	if list == nil {
+		list = make([]*wsClient, 0)
+	}
+
+	wsClientsMutex.RUnlock()
+	return list
 }
 
 func HandleChatWS(ws *websocket.Conn, client *client.Client) {
@@ -50,7 +131,8 @@ func HandleChatWS(ws *websocket.Conn, client *client.Client) {
 		return
 	}
 
-	mutex := sync.Mutex{}
+	curWsClient := &wsClient{ws: ws, client: client}
+	curWsClient.storeWsClient()
 
 	go func() {
 		m := websocketMessage{
@@ -62,17 +144,15 @@ func HandleChatWS(ws *websocket.Conn, client *client.Client) {
 			time.Sleep(time.Second * pausePingSec)
 			if ws == nil {
 				common.LogAdd(common.MessError, "error writing json: closed connection")
-				//todo remove from list connection
+				curWsClient.removeWsClient()
 				return
 			}
 
-			mutex.Lock()
-			err := ws.WriteJSON(m)
-			mutex.Unlock()
+			err := curWsClient.SendJSON(m)
 
 			if err != nil {
 				common.LogAdd(common.MessError, "error writing json: "+fmt.Sprint(err))
-				//todo remove from list connection
+				curWsClient.removeWsClient()
 				return
 			}
 		}
@@ -84,14 +164,14 @@ func HandleChatWS(ws *websocket.Conn, client *client.Client) {
 		err := ws.SetReadDeadline(time.Now().Add(time.Second * readDeadlineSec))
 		if err != nil {
 			common.LogAdd(common.MessError, "error reading json: "+fmt.Sprint(err))
-			//todo remove from list connection
+			curWsClient.removeWsClient()
 			break
 		}
 
 		err = ws.ReadJSON(&m)
 		if err != nil {
 			common.LogAdd(common.MessError, "error reading json: "+fmt.Sprint(err))
-			//todo remove from list connection
+			curWsClient.removeWsClient()
 			break
 		}
 
@@ -102,7 +182,10 @@ func HandleChatWS(ws *websocket.Conn, client *client.Client) {
 		} else if m.Type == wsMessage {
 			data, _ := url.QueryUnescape(m.Data)
 			chat := chatMessage{}
-			json.Unmarshal([]byte(data), &chat)
+			err = json.Unmarshal([]byte(data), &chat)
+			if err != nil {
+				continue
+			}
 
 			chat.Text = strings.Replace(chat.Text, "<", "[", -1)
 			chat.Text = strings.Replace(chat.Text, ">", "]", -1)
@@ -113,12 +196,13 @@ func HandleChatWS(ws *websocket.Conn, client *client.Client) {
 			b, _ := json.Marshal(chat)
 			m.Data = string(b)
 
-			mutex.Lock()
-			ws.WriteJSON(m)
-			mutex.Unlock()
+			list := GetWsClient(chat.Pid)
+			for i := 0; i < len(list); i++ {
+				list[i].SendJSON(m)
+			}
 		}
 	}
 
-	//todo remove from list connection
 	common.LogAdd(common.MessInfo, "web ws disconnected")
+	curWsClient.removeWsClient()
 }

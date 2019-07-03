@@ -68,10 +68,6 @@ func HttpServer() {
 
 func checkAuth(f func(w http.ResponseWriter, r *http.Request, client *Client)) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		//todo!!!!!!!!!!!!!
-		f(w, r, &Client{Pid: "123:321:123", Pass: "12345", Serial: "abcdefg", Version: "0.9"})
-		return
-
 		pidCookie, err := r.Cookie("abc")
 		if err != nil {
 			http.Error(w, "unknown user", http.StatusUnauthorized)
