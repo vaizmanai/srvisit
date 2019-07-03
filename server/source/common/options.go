@@ -24,6 +24,7 @@ const (
 	LengthSalt            = 16
 	LengthToken           = 32
 	WebSessionTimeoutHour = 2
+
 	PredefinedPass        = "0000"
 	UriServiceIpIFY       = "https://api.ipify.org/"
 	UriYandexMap          = "http://api.lbs.yandex.net/geolocation"
