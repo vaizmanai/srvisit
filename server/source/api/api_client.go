@@ -29,7 +29,13 @@ func HandleGetClient(w http.ResponseWriter, r *http.Request, client *client.Clie
 	tmp.Salt = "*"
 	tmp.Code = "*"
 	tmp.Token = "*"
-	b, err := json.Marshal(client)
+	if tmp.Profile != nil {
+		tmp.Profile = &*tmp.Profile
+		tmp.Profile.Pass = "*"
+		//todo надо похерить у контактов реки
+	}
+
+	b, err := json.Marshal(tmp)
 	if err != nil {
 		common.LogAdd(common.MessError, "handleGetClient: "+err.Error())
 		http.Error(w, "couldn't service this request", http.StatusInternalServerError)
