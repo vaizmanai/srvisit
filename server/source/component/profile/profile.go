@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"os"
 	"sync"
+	"time"
 )
 
 var (
@@ -27,6 +28,7 @@ type Profile struct {
 	Capt string
 	Tel  string
 	Logo string
+	Last time.Time //дата последнего входа
 }
 
 //todo избавиться
@@ -36,6 +38,12 @@ func (profile *Profile) Lock() {
 
 //todo избавиться
 func (profile *Profile) Unlock() {
+	profile.contactsMutex.Unlock()
+}
+
+func (profile *Profile)UpdateLastLogin(){
+	profile.contactsMutex.Lock()
+	profile.Last = time.Now()
 	profile.contactsMutex.Unlock()
 }
 

@@ -66,7 +66,7 @@ func mainHandler(conn *net.Conn) {
 
 	defer recoverMainServer(conn)
 
-	var curClient Client
+	curClient := &Client{}
 	reader := bufio.NewReader(*conn)
 
 	for {
@@ -102,7 +102,7 @@ func mainHandler(conn *net.Conn) {
 		//обрабатываем полученное сообщение
 		if len(Processing) > message.TMessage {
 			if Processing[message.TMessage].Processing != nil {
-				Processing[message.TMessage].Processing(message, conn, &curClient, id)
+				Processing[message.TMessage].Processing(message, conn, curClient, id)
 			} else {
 				LogAdd(MessInfo, id+" нет обработчика для сообщения "+fmt.Sprint(message.TMessage))
 				time.Sleep(time.Millisecond * WaitIdle)
@@ -117,7 +117,7 @@ func mainHandler(conn *net.Conn) {
 
 	//удалим связи с профилем
 	if curClient.Profile != nil {
-		DelAuthorizedClient(curClient.Profile.Email, &curClient)
+		DelAuthorizedClient(curClient.Profile.Email, curClient)
 		DelContainedProfile(curClient.Pid, curClient.Profile)
 	}
 

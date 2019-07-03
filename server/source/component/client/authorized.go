@@ -18,6 +18,7 @@ func init() {
 
 func AddAuthorizedClient(email string, client *Client) {
 	authorizedMutex.Lock()
+	client.Profile.UpdateLastLogin()
 	if authorized[email] == nil {
 		authorized[email] = make(map[string]*Client)
 	}
@@ -27,6 +28,7 @@ func AddAuthorizedClient(email string, client *Client) {
 
 func DelAuthorizedClient(email string, client *Client) {
 	authorizedMutex.Lock()
+	client.Profile.UpdateLastLogin()
 	if authorized[email] == nil {
 		authorized[email] = make(map[string]*Client)
 	}
