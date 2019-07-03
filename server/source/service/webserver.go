@@ -6,9 +6,14 @@ import (
 	. "../component/client"
 	"fmt"
 	"github.com/gorilla/mux"
+	"github.com/gorilla/websocket"
 	"net"
 	"net/http"
 	"time"
+)
+
+const (
+	wsBufferSize = 1024 * 5
 )
 
 func HttpServer() {
@@ -37,6 +42,7 @@ func HttpServer() {
 	apiRouter.Use(handleCORS)
 	apiRouter.HandleFunc("/auth", handleAuth).Methods("GET", "POST")
 	apiRouter.Handle("/client", checkAuth(api.HandleGetClient)).Methods("GET")
+	apiRouter.Handle("/chat", checkAuth(handleWS)) //handle for websocket from chat
 
 	apiAdmin := apiRouter.PathPrefix("/admin").Subrouter()
 	apiAdmin.Handle("/clients", checkAdmin(api.HandleGetClientsList)).Methods("GET")
@@ -141,7 +147,7 @@ func handleAuth(w http.ResponseWriter, r *http.Request) {
 			if webIp != clientIp {
 				continue
 			}
-      
+
 			cookie_pid := http.Cookie{Name: "abc", Value: pid, Expires: time.Now().Add(WebSessionTimeoutHour * time.Hour)}
 			cookie_token := http.Cookie{Name: "cba", Value: token, Expires: time.Now().Add(WebSessionTimeoutHour * time.Hour)}
 			http.SetCookie(w, &cookie_pid)
@@ -151,4 +157,13 @@ func handleAuth(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	http.Error(w, "Launch by reVisit, please!", http.StatusUnauthorized)
+}
+
+func handleWS(w http.ResponseWriter, r *http.Request, client *Client) {
+	conn, err := websocket.Upgrade(w, r, w.Header(), wsBufferSize, wsBufferSize)
+
+	if err != nil {
+		http.Error(w, "could not open websocket connection", http.StatusBadRequest)
+	}
+	go api.HandleChatWS(conn, client)
 }
