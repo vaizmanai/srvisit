@@ -1,2 +1,2 @@
 ignore:
-  - "webserver_old.go"  # is really ugly file, will be deleted after moving to api v2
+  - "server/source/service/webserver_old.go"  # is really ugly file, will be deleted after moving to api v2
