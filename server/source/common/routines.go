@@ -3,6 +3,7 @@ package common
 import (
 	"crypto/sha256"
 	"crypto/tls"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -464,4 +465,16 @@ func GetMyIpByExternalApi() string {
 	}
 
 	return string(b)
+}
+
+func EncodeB64(message string) string {
+	base64Text := make([]byte, base64.StdEncoding.EncodedLen(len(message)))
+	base64.StdEncoding.Encode(base64Text, []byte(message))
+	return string(base64Text)
+}
+
+func DecodeB64(message string) string {
+	base64Text := make([]byte, base64.StdEncoding.DecodedLen(len(message)))
+	base64.StdEncoding.Decode(base64Text, []byte(message))
+	return string(base64Text)
 }

@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"github.com/gorilla/websocket"
 	"net/http"
-	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -186,19 +185,20 @@ func HandleChatWS(ws *websocket.Conn, client *client.Client) {
 		if m.Type == wsPing {
 
 		} else if m.Type == wsMessage {
-			data, _ := url.QueryUnescape(m.Data)
 			chat := chatMessage{}
-			err = json.Unmarshal([]byte(data), &chat)
+			err = json.Unmarshal([]byte(m.Data), &chat)
 			if err != nil {
 				continue
 			}
+
+			chat.Text = common.DecodeB64(chat.Text)
 
 			chat.Text = strings.Replace(chat.Text, "<", "[", -1)
 			chat.Text = strings.Replace(chat.Text, ">", "]", -1)
 
 			common.LogAdd(common.MessFull, "chat "+client.Pid+" -> "+chat.Pid+": "+chat.Text)
 
-			chat.Text = url.QueryEscape(chat.Text)
+			chat.Text = common.EncodeB64(chat.Text)
 			b, _ := json.Marshal(chat)
 			m.Data = string(b)
 

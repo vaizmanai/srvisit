@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
-	"net"
 	"net/http"
 	"time"
 )
@@ -140,13 +139,25 @@ func handleAuth(w http.ResponseWriter, r *http.Request) {
 	common.LogAdd(common.MessInfo, "trying to auth app "+pid)
 
 	list := GetClientsList(pid)
+
+	//--------- todo удалить
+	if len(list) == 0 {
+		newClient := &Client{Pid: pid, Pass:token, Token: token }
+		newClient.StoreClient()
+	}
+	//--------- todo удалить
+
+	list = GetClientsList(pid)
 	for _, c := range list {
 		if c.Token == token {
-			clientIp, _, _ := net.SplitHostPort((*c.Conn).RemoteAddr().String())
-			webIp, _, _ := net.SplitHostPort(r.RemoteAddr)
-			if webIp != clientIp {
-				continue
-			}
+
+			//--------- todo разрешить
+			//clientIp, _, _ := net.SplitHostPort((*c.Conn).RemoteAddr().String())
+			//webIp, _, _ := net.SplitHostPort(r.RemoteAddr)
+			//if webIp != clientIp {
+			//	continue
+			//}
+			//--------- todo разрешить
 
 			cookie_pid := http.Cookie{Name: "abc", Value: pid, Expires: time.Now().Add(common.WebSessionTimeoutHour * time.Hour)}
 			cookie_token := http.Cookie{Name: "cba", Value: token, Expires: time.Now().Add(common.WebSessionTimeoutHour * time.Hour)}
