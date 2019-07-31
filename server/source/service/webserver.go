@@ -4,6 +4,7 @@ import (
 	"../api"
 	"../common"
 	. "../component/client"
+	"../component/profile"
 	"fmt"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
@@ -142,7 +143,7 @@ func handleAuth(w http.ResponseWriter, r *http.Request) {
 
 	//--------- todo удалить
 	if len(list) == 0 {
-		newClient := &Client{Pid: pid, Pass:token, Token: token }
+		newClient := &Client{Pid: pid, Pass:token, Token: token, Profile: profile.GetProfile("vaizmanai@mail.ru") }
 		newClient.StoreClient()
 	}
 	//--------- todo удалить
