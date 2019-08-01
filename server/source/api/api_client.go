@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"github.com/gorilla/websocket"
 	"net/http"
-	"strings"
 	"sync"
 	"time"
 )
@@ -191,16 +190,16 @@ func HandleChatWS(ws *websocket.Conn, client *client.Client) {
 				continue
 			}
 
-			chat.Text = common.DecodeB64(chat.Text)
+			//chat.Text = common.DecodeB64(chat.Text)
 
-			chat.Text = strings.Replace(chat.Text, "<", "[", -1)
-			chat.Text = strings.Replace(chat.Text, ">", "]", -1)
+			//chat.Text = strings.Replace(chat.Text, "<", "[", -1)
+			//chat.Text = strings.Replace(chat.Text, ">", "]", -1)
 
-			common.LogAdd(common.MessFull, "chat "+client.Pid+" -> "+chat.Pid+": "+chat.Text)
+			common.LogAdd(common.MessFull, "chat "+client.Pid+" -> "+chat.Pid+": "+common.DecodeB64(chat.Text))
 
-			chat.Text = common.EncodeB64(chat.Text)
-			b, _ := json.Marshal(chat)
-			m.Data = string(b)
+			//chat.Text = common.EncodeB64(chat.Text)
+			//b, _ := json.Marshal(chat)
+			//m.Data = string(b)
 
 			list := GetWsClient(chat.Pid)
 			for i := 0; i < len(list); i++ {
