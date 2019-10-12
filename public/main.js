@@ -6,7 +6,7 @@
 				}else{
 					window.location="/index.html?lang=eng"
 				}
-			}			
+			}
 		}
 
 		function gup( name, url ) {
@@ -39,10 +39,10 @@
 			if (m == 'version') {
 				req.open('GET', 'http://server.rvisit.net:8090/api?make=version', true)
 			}
-			
-			req.send(null)
+
+			//req.send(null)
 		}
-		
+
 		function getXmlHttp(){
 			var xmlhttp;
 			try {
