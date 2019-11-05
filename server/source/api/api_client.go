@@ -202,7 +202,12 @@ func (curWsClient *wsClient) removeWsClient() {
 
 func (curWsClient *wsClient) SendJSON(v interface{}) error {
 	curWsClient.mutex.Lock()
-	err := curWsClient.ws.WriteJSON(v)
+	err := curWsClient.ws.SetWriteDeadline(time.Now().Add(time.Second))
+	if err != nil {
+		curWsClient.mutex.Unlock()
+		return err
+	}
+	err = curWsClient.ws.WriteJSON(v)
 	curWsClient.mutex.Unlock()
 	return err
 }
