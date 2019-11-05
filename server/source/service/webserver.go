@@ -43,6 +43,7 @@ func HttpServer() {
 	apiRouter.HandleFunc("/auth", handleAuth).Methods("GET", "POST")
 	apiRouter.Handle("/client", checkAuth(api.HandleGetClient)).Methods("GET")
 	apiRouter.Handle("/chat", checkAuth(handleWS)) //handle for websocket from chat
+	apiRouter.PathPrefix("/files").HandlerFunc(checkAuth(api.HandleGetFiles)).Methods("GET")
 
 	apiAdmin := apiRouter.PathPrefix("/admin").Subrouter()
 	apiAdmin.Handle("/clients", checkAdmin(api.HandleGetClientsList)).Methods("GET")

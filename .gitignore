@@ -12,3 +12,4 @@ cert.pem
 key.pem
 *.out
 coverage.txt
+server/build/profiles.list.back

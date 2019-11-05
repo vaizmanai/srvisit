@@ -6,7 +6,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/gorilla/websocket"
+	"io/ioutil"
 	"net/http"
+	"os"
+	"strings"
 	"sync"
 	"time"
 )
@@ -18,6 +21,14 @@ const (
 	wsPing    = 0
 	wsMessage = 1
 )
+
+type FileDescription struct {
+	Name  string
+	IsDir bool
+	Mode  os.FileMode
+	Time  time.Time
+	Size  int64
+}
 
 //Getting authorized client info
 func HandleGetClient(w http.ResponseWriter, r *http.Request, client *client.Client) {
@@ -36,6 +47,87 @@ func HandleGetClient(w http.ResponseWriter, r *http.Request, client *client.Clie
 	b, err := json.Marshal(tmp)
 	if err != nil {
 		common.LogAdd(common.MessError, "handleGetClient: "+err.Error())
+		http.Error(w, "couldn't service this request", http.StatusInternalServerError)
+		return
+	}
+	w.Write(b)
+}
+
+//Getting authorized client's files
+func HandleGetFiles(w http.ResponseWriter, r *http.Request, client *client.Client) {
+	if client.Profile == nil {
+		common.LogAdd(common.MessError, "HandleGetFiles: profile is null")
+		http.Error(w, "couldn't service this request", http.StatusInternalServerError)
+		return
+	}
+
+	fileName := "/"
+	p := strings.Split(r.RequestURI, "/v2/api/files")
+	if len(p) == 2 {
+		fileName = p[1]
+	}
+
+	fs, err := os.Stat("files/" + client.Profile.Email + fileName)
+	if err != nil {
+		common.LogAdd(common.MessError, "HandleGetFiles: "+err.Error())
+		http.Error(w, "couldn't service this request", http.StatusInternalServerError)
+		return
+	}
+
+	if !fs.IsDir() {
+		f, err := os.Open("files/" + client.Profile.Email + fileName)
+		if err != nil {
+			common.LogAdd(common.MessError, "HandleGetFiles: "+err.Error())
+			http.Error(w, "couldn't service this request", http.StatusInternalServerError)
+			return
+		}
+		defer f.Close()
+
+		w.Header().Set("Content-Type", "multipart/mixed")
+		w.Header().Set("Content-Disposition", "attachment; filename="+fs.Name())
+		w.Header().Set("Content-Transfer-Encoding", "binary")
+
+		var buff [1024 * 1024]byte
+		for {
+			n, err := f.Read(buff[:])
+			if err != nil {
+				common.LogAdd(common.MessError, "HandleGetFiles: error reading file")
+				return
+			}
+			if n == 0 {
+				common.LogAdd(common.MessError, "HandleGetFiles: file is closed")
+				return
+			}
+				_, err = w.Write(buff[:n])
+			if err != nil {
+				common.LogAdd(common.MessError, "HandleGetFiles: error sending file")
+				return
+			}
+		}
+	}
+
+	files, err := ioutil.ReadDir("files/" + client.Profile.Email + fileName)
+	if err != nil {
+		common.LogAdd(common.MessError, "HandleGetFiles: "+err.Error())
+		http.Error(w, "couldn't service this request", http.StatusInternalServerError)
+		return
+	}
+
+	fileList := make([]FileDescription, 0)
+
+	for _, f := range files {
+		fileList = append(fileList, FileDescription{
+			Name:  f.Name(),
+			IsDir: f.IsDir(),
+			Mode:  f.Mode(),
+			Time:  f.ModTime(),
+			Size:  f.Size(),
+		})
+	}
+
+	b, err := json.Marshal(fileList)
+	if err != nil {
+		common.LogAdd(common.MessError, "HandleGetFiles: "+err.Error())
 		http.Error(w, "couldn't service this request", http.StatusInternalServerError)
 		return
 	}
