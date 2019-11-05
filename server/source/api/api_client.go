@@ -282,18 +282,17 @@ func HandleChatWS(ws *websocket.Conn, client *client.Client) {
 				continue
 			}
 
-			//chat.Text = common.DecodeB64(chat.Text)
-
-			//chat.Text = strings.Replace(chat.Text, "<", "[", -1)
-			//chat.Text = strings.Replace(chat.Text, ">", "]", -1)
-
 			common.LogAdd(common.MessFull, "chat "+client.Pid+" -> "+chat.Pid+": "+common.DecodeB64(chat.Text))
 
-			//chat.Text = common.EncodeB64(chat.Text)
-			//b, _ := json.Marshal(chat)
-			//m.Data = string(b)
+			destinationPid := chat.Pid
+			chat.Pid = client.Pid
+			b, err := json.Marshal(chat)
+			if err != nil {
+				continue
+			}
+			m.Data = string(b)
 
-			list := GetWsClient(chat.Pid)
+			list := GetWsClient(destinationPid)
 			for i := 0; i < len(list); i++ {
 				list[i].SendJSON(m)
 			}
