@@ -101,7 +101,6 @@ func mainHandler(conn *net.Conn) {
 		//обрабатываем полученное сообщение
 		if len(Processing) > message.TMessage {
 			if Processing[message.TMessage].Processing != nil {
-				//todo вот тут наверное у нас что-то с таймаутом надо бы
 				Processing[message.TMessage].Processing(message, conn, &curClient, id)
 			} else {
 				LogAdd(MessInfo, id+" нет обработчика для сообщения "+fmt.Sprint(message.TMessage))
@@ -125,7 +124,7 @@ func mainHandler(conn *net.Conn) {
 	for _, profile := range GetContainedProfileList(curClient.Pid) {
 		//все кто авторизовался в этот профиль должен получить новый статус
 		for _, client := range GetAuthorizedClientList(profile.Email) {
-			sendMessage(client.Conn, TMESS_STATUS, CleanPid(curClient.Pid), "0")
+			sendMessage(client.Conn, TMessStatus, CleanPid(curClient.Pid), "0")
 		}
 	}
 
@@ -188,11 +187,11 @@ func dataHandler(conn *net.Conn) {
 
 			if Options.Mode == ModeRegular {
 				//отправим запрос принимающей стороне
-				if !sendMessage(peers.client.Conn, TMESS_CONNECT, "", "", code, "simple", "client", peers.server.Pid, peers.address) {
+				if !sendMessage(peers.client.Conn, TMessConnect, "", "", code, "simple", "client", peers.server.Pid, peers.address) {
 					LogAdd(MessError, id+" не смогли отправить запрос принимающей стороне")
 				}
 			} else { //options.mode == ModeNode
-				sendMessageToMaster(TMESS_AGENT_NEW_CONN, code) //оповестим мастер о том что мы дождались транслятор
+				sendMessageToMaster(TMessAgentNewConn, code) //оповестим мастер о том что мы дождались транслятор
 			}
 
 		} else if peers.pointer[1] == nil {
@@ -233,6 +232,11 @@ func dataHandler(conn *net.Conn) {
 				break
 			}
 
+			err := (*peers.pointer[numPeer]).SetWriteDeadline(time.Now().Add(time.Second * WriteTimeout))
+			if err != nil {
+				LogAdd(MessInfo, id+" не получилось установит таймаут")
+				break
+			}
 			n2, err2 = (*peers.pointer[numPeer]).Write(z[:n1])
 
 			countBytes = countBytes + uint64(n1+n2)
@@ -251,7 +255,7 @@ func dataHandler(conn *net.Conn) {
 
 		AddCounter(countBytes)
 		if Options.Mode == ModeNode {
-			sendMessageToMaster(TMESS_AGENT_ADD_BYTES, fmt.Sprint(countBytes))
+			sendMessageToMaster(TMessAgentAddBytes, fmt.Sprint(countBytes))
 		}
 
 		LogAdd(MessInfo, id+" поток завершается")
@@ -277,10 +281,10 @@ func disconnectPeers(code string) {
 			}
 		}
 		if Options.Mode == ModeMaster {
-			sendMessageToNodes(TMESS_AGENT_DEL_CODE, code)
+			sendMessageToNodes(TMessAgentDelCode, code)
 		}
 		if Options.Mode == ModeNode {
-			sendMessageToMaster(TMESS_AGENT_DEL_CODE, code)
+			sendMessageToMaster(TMessAgentDelCode, code)
 		}
 
 		pair.client = nil
@@ -298,7 +302,7 @@ func connectPeers(code string, client *Client, server *Client, address string) {
 	go checkConnection(&newConnection, code) //может случиться так, что код сохранили, а никто не подключился
 
 	if Options.Mode == ModeMaster {
-		sendMessageToNodes(TMESS_AGENT_ADD_CODE, code)
+		sendMessageToNodes(TMessAgentAddCode, code)
 	}
 }
 
@@ -310,7 +314,7 @@ func checkConnection(connection *dConn, code string) {
 			LogAdd(MessError, "таймаут ожидания соединений для "+code)
 			if connection.client != nil {
 				if connection.client.GreaterVersionThan(MinimalVersionForStaticAlert) {
-					sendMessage(connection.client.Conn, TMESS_STANDART_ALERT, fmt.Sprint(StaticMessageTimeoutError))
+					sendMessage(connection.client.Conn, TMessStandardAlert, fmt.Sprint(StaticMessageTimeoutError))
 				}
 			}
 			disconnectPeers(code)

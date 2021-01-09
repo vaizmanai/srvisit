@@ -94,7 +94,7 @@ func masterHandler(conn *net.Conn) {
 	//если есть id значит скорее всего есть в карте
 	if len(curNode.Id) != 0 {
 		nodes.Delete(curNode.Id)
-		sendMessageToAllClients(TMESS_SERVERS, fmt.Sprint(false), curNode.Ip)
+		sendMessageToAllClients(TMessServers, fmt.Sprint(false), curNode.Ip)
 	}
 
 	//удалим все сессии связанные с этим агентом
@@ -130,7 +130,7 @@ func NodeClient() {
 		if len(Options.Hostname) > 0 {
 			hostname = Options.Hostname
 		}
-		sendMessage(&conn, TMESS_AGENT_AUTH, hostname, Options.MasterPassword, ReVisitVersion, fmt.Sprint(coordinates[0], ";", coordinates[1]))
+		sendMessage(&conn, TMessAgentAuth, hostname, Options.MasterPassword, ReVisitVersion, fmt.Sprint(coordinates[0], ";", coordinates[1]))
 
 		go ping(&conn)
 
@@ -248,12 +248,12 @@ func processAgentAuth(message Message, conn *net.Conn, curNode *Node, id string)
 		curNode.Ip = h
 	}
 
-	if sendMessage(conn, TMESS_AGENT_AUTH, curNode.Id) {
+	if sendMessage(conn, TMessAgentAuth, curNode.Id) {
 		nodes.Store(curNode.Id, curNode)
 		LogAdd(MessInfo, id+" авторизация агента успешна")
 	}
 
-	sendMessageToAllClients(TMESS_SERVERS, fmt.Sprint(true), curNode.Ip)
+	sendMessageToAllClients(TMessServers, fmt.Sprint(true), curNode.Ip)
 }
 
 func processAgentAddCode(message Message, conn *net.Conn, curNode *Node, id string) {
@@ -337,7 +337,7 @@ func processAgentNewConn(message Message, conn *net.Conn, curNode *Node, id stri
 		peers := value.(*dConn)
 		peers.node = curNode
 		//отправим запрос принимающей стороне
-		if !sendMessage(peers.client.Conn, TMESS_CONNECT, "", "", code, "simple", "client", peers.server.Pid, peers.address) {
+		if !sendMessage(peers.client.Conn, TMessConnect, "", "", code, "simple", "client", peers.server.Pid, peers.address) {
 			LogAdd(MessError, id+" не смогли отправить запрос принимающей стороне")
 		}
 	}

@@ -15,5 +15,5 @@ func HandleGetClient(w http.ResponseWriter, r *http.Request, client *client.Clie
 		http.Error(w, "couldn't service this request", http.StatusInternalServerError)
 		return
 	}
-	w.Write(b)
+	_, _ = w.Write(b)
 }

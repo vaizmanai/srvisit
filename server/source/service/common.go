@@ -16,74 +16,74 @@ import (
 
 const (
 	//виды сообщений
-	TMESS_DEAUTH          = 0  //деаутентификация()
-	TMESS_VERSION         = 1  //запрос версии
-	TMESS_AUTH            = 2  //аутентификация(генерация pid)
-	TMESS_LOGIN           = 3  //вход в профиль
-	TMESS_NOTIFICATION    = 4  //сообщение клиент
-	TMESS_REQUEST         = 5  //запрос на подключение
-	TMESS_CONNECT         = 6  //запрашиваем подключение у клиента
-	TMESS_DISCONNECT      = 7  //сообщаем об отключении клиенту
-	TMESS_REG             = 8  //регистрация профиля
-	TMESS_CONTACT         = 9  //создание, редактирование, удаление
-	TMESS_CONTACTS        = 10 //запрос списка контактов
-	TMESS_LOGOUT          = 11 //выход из профиля
-	TMESS_CONNECT_CONTACT = 12 //запрос подключения к конакту из профиля
-	TMESS_STATUSES        = 13 //запрос всех статусов
-	TMESS_STATUS          = 14 //запрос статуса
-	TMESS_INFO_CONTACT    = 15 //запрос информации о клиенте
-	TMESS_INFO_ANSWER     = 16 //ответ на запрос информации
-	TMESS_MANAGE          = 17 //запрос на управление(перезагрузка, обновление, переустановка)
-	TMESS_PING            = 18 //проверка состояния подключения
-	TMESS_CONTACT_REVERSE = 19 //добавление себя в чужой профиль
-	TMESS_SERVERS         = 20 //отправляем список агентов, чтобы клиент выбрал тот что нужен, тут же отправляем изменения
-	TMESS_STANDART_ALERT  = 21 //стандартные сообщения, чтобы была возможность интернационально выводить их
+	TMessDeauth         = 0  //деаутентификация()
+	TMessVersion        = 1  //запрос версии
+	TMessAuth           = 2  //аутентификация(генерация pid)
+	TMessLogin          = 3  //вход в профиль
+	TMessNotification   = 4  //сообщение клиент
+	TMessRequest        = 5  //запрос на подключение
+	TMessConnect        = 6  //запрашиваем подключение у клиента
+	TMessDisconnect     = 7  //сообщаем об отключении клиенту
+	TMessReg            = 8  //регистрация профиля
+	TMessContact        = 9  //создание, редактирование, удаление
+	TMessContacts       = 10 //запрос списка контактов
+	TMessLogout         = 11 //выход из профиля
+	TMessConnectContact = 12 //запрос подключения к контакту из профиля
+	TMessStatuses       = 13 //запрос всех статусов
+	TMessStatus         = 14 //запрос статуса
+	TMessInfoContact    = 15 //запрос информации о клиенте
+	TMessInfoAnswer     = 16 //ответ на запрос информации
+	TMessManage         = 17 //запрос на управление(перезагрузка, обновление, переустановка)
+	TMessPing           = 18 //проверка состояния подключения
+	TMessContactReverse = 19 //добавление себя в чужой профиль
+	TMessServers        = 20 //отправляем список агентов, чтобы клиент выбрал тот что нужен, тут же отправляем изменения
+	TMessStandardAlert  = 21 //стандартные сообщения, чтобы была возможность интернационально выводить их
 
-	TMESS_AGENT_DEAUTH    = 0
-	TMESS_AGENT_AUTH      = 1
-	TMESS_AGENT_ADD_CODE  = 2
-	TMESS_AGENT_DEL_CODE  = 3
-	TMESS_AGENT_ADD_BYTES = 4
-	TMESS_AGENT_NEW_CONN  = 5
+	TMessAgentDeauth   = 0
+	TMessAgentAuth     = 1
+	TMessAgentAddCode  = 2
+	TMessAgentDelCode  = 3
+	TMessAgentAddBytes = 4
+	TMessAgentNewConn  = 5
 
-	TMESS_AGENT_PING = 18
+	TMessAgentPing = 18
 )
 
 var (
 	//функции для обработки сообщений
 	Processing = []processingMessage{
-		{TMESS_DEAUTH, nil},
-		{TMESS_VERSION, processVersion},
-		{TMESS_AUTH, processAuth},
-		{TMESS_LOGIN, processLogin},
-		{TMESS_NOTIFICATION, processNotification},
-		{TMESS_REQUEST, processConnect},
-		{TMESS_CONNECT, nil},
-		{TMESS_DISCONNECT, processDisconnect},
-		{TMESS_REG, processReg},
-		{TMESS_CONTACT, processContact},
-		{TMESS_CONTACTS, processContacts}, //10
-		{TMESS_LOGOUT, processLogout},
-		{TMESS_CONNECT_CONTACT, processConnectContact},
-		{TMESS_STATUSES, processStatuses},
-		{TMESS_STATUS, processStatus},
-		{TMESS_INFO_CONTACT, processInfoContact},
-		{TMESS_INFO_ANSWER, processInfoAnswer},
-		{TMESS_MANAGE, processManage},
-		{TMESS_PING, processPing},
-		{TMESS_CONTACT_REVERSE, processContactReverse},
-		{TMESS_SERVERS, processServers}, //20
-		{TMESS_STANDART_ALERT, nil}}
+		{TMessDeauth, nil},
+		{TMessVersion, processVersion},
+		{TMessAuth, processAuth},
+		{TMessLogin, processLogin},
+		{TMessNotification, processNotification},
+		{TMessRequest, processConnect},
+		{TMessConnect, nil},
+		{TMessDisconnect, processDisconnect},
+		{TMessReg, processReg},
+		{TMessContact, processContact},
+		{TMessContacts, processContacts}, //10
+		{TMessLogout, processLogout},
+		{TMessConnectContact, processConnectContact},
+		{TMessStatuses, processStatuses},
+		{TMessStatus, processStatus},
+		{TMessInfoContact, processInfoContact},
+		{TMessInfoAnswer, processInfoAnswer},
+		{TMessManage, processManage},
+		{TMessPing, processPing},
+		{TMessContactReverse, processContactReverse},
+		{TMessServers, processServers}, //20
+		{TMessStandardAlert, nil}}
 
 	ProcessingAgent = []processingAgent{
-		{TMESS_AGENT_DEAUTH, nil},
-		{TMESS_AGENT_AUTH, processAgentAuth},
-		{TMESS_AGENT_ADD_CODE, processAgentAddCode},
-		{TMESS_AGENT_DEL_CODE, processAgentDelCode},
-		{TMESS_AGENT_ADD_BYTES, processAgentAddBytes},
-		{TMESS_AGENT_NEW_CONN, processAgentNewConn},
+		{TMessAgentDeauth, nil},
+		{TMessAgentAuth, processAgentAuth},
+		{TMessAgentAddCode, processAgentAddCode},
+		{TMessAgentDelCode, processAgentDelCode},
+		{TMessAgentAddBytes, processAgentAddBytes},
+		{TMessAgentNewConn, processAgentNewConn},
 
-		18: {TMESS_AGENT_PING, processAgentPing}}
+		18: {TMessAgentPing, processAgentPing}}
 
 	//карта каналов для передачи данных
 	channels sync.Map
@@ -114,7 +114,7 @@ var (
 	coordinates [2]float64
 )
 
-//информацияя о ноде
+//информация о ноде
 type Node struct {
 	Id          string
 	Name        string
@@ -163,7 +163,7 @@ func ping(conn *net.Conn) {
 	success := true
 	for success {
 		time.Sleep(time.Second * WaitPing)
-		success = sendMessage(conn, TMESS_PING)
+		success = sendMessage(conn, TMessPing)
 	}
 }
 
@@ -191,13 +191,11 @@ func sendMessage(conn *net.Conn, TMessage int, Messages ...string) bool {
 	mes.Messages = Messages
 
 	out, err := json.Marshal(mes)
-	if err == nil && conn != nil {
-		_, err = (*conn).Write(out)
-		if err == nil {
-			return true
-		}
+	if err != nil {
+		LogAdd(MessError, err.Error())
+		return false
 	}
-	return false
+	return sendRawBytes(conn, out)
 }
 
 func sendMessageToAllClients(TMessage int, Messages ...string) {
@@ -228,7 +226,7 @@ func addClientToProfile(client *Client) {
 
 			//отправим всем авторизованным в этот профиль обновление статуса
 			for _, authClient := range GetAuthorizedClientList(profile.Email) {
-				sendMessage(authClient.Conn, TMESS_STATUS, CleanPid(client.Pid), "1")
+				sendMessage(authClient.Conn, TMessStatus, CleanPid(client.Pid), "1")
 			}
 		}
 	}
@@ -241,7 +239,7 @@ func checkStatuses(curClient *Client, first *Contact) {
 			list := GetClientsList(first.Pid)
 			if list != nil && len(list) > 0 {
 				//todo хз что делать, у нас может быть совсем не интересующий нас контакт онлайн из-за потенциальных дублей
-				statuses = append(statuses, printMessage(TMESS_STATUS, fmt.Sprint(CleanPid(first.Pid)), "1")...)
+				statuses = append(statuses, printMessage(TMessStatus, fmt.Sprint(CleanPid(first.Pid)), "1")...)
 			}
 		}
 
@@ -255,7 +253,12 @@ func checkStatuses(curClient *Client, first *Contact) {
 }
 
 func sendRawBytes(conn *net.Conn, bytes []byte) bool {
-	_, err := (*conn).Write(bytes)
+	err := (*conn).SetWriteDeadline(time.Now().Add(time.Second * WriteTimeout))
+	if err != nil {
+		return false
+	}
+
+	_, err = (*conn).Write(bytes)
 	if err != nil {
 		return false
 	}

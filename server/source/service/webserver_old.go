@@ -80,10 +80,10 @@ func handleProfileWelcome(w http.ResponseWriter, r *http.Request) {
 	file, _ := os.Open("resource/profile/welcome.html")
 	body, err := ioutil.ReadAll(file)
 	if err == nil {
-		file.Close()
+		_ = file.Close()
 
 		body = pageReplace(body, "$menu", addMenuProfile())
-		w.Write(body)
+		_, _ = w.Write(body)
 		return
 	}
 
@@ -99,10 +99,10 @@ func handleProfileMy(w http.ResponseWriter, r *http.Request) {
 	file, _ := os.Open("resource/profile/my.html")
 	body, err := ioutil.ReadAll(file)
 	if err == nil {
-		file.Close()
+		_ = file.Close()
 
 		body = pageReplace(body, "$menu", addMenuProfile())
-		w.Write(body)
+		_, _ = w.Write(body)
 		return
 	}
 }
@@ -113,10 +113,10 @@ func handleWelcome(w http.ResponseWriter, r *http.Request) {
 	file, _ := os.Open("resource/admin/welcome.html")
 	body, err := ioutil.ReadAll(file)
 	if err == nil {
-		file.Close()
+		_ = file.Close()
 
 		body = pageReplace(body, "$menu", addMenuAdmin())
-		w.Write(body)
+		_, _ = w.Write(body)
 		return
 	}
 
@@ -242,11 +242,11 @@ func handleResources(w http.ResponseWriter, r *http.Request) {
 	file, _ := os.Open("resource/admin/resources.html")
 	body, err := ioutil.ReadAll(file)
 	if err == nil {
-		file.Close()
+		_ = file.Close()
 
 		body = pageReplace(body, "$menu", addMenuAdmin())
 		body = pageReplace(body, "$connections", connectionsString)
-		w.Write(body)
+		_, _ = w.Write(body)
 		return
 	}
 
@@ -537,20 +537,20 @@ func processApiOptionsSave(w http.ResponseWriter, r *http.Request) {
 
 	LogAdd(MessInfo, "WEB Запрос сохранения опций")
 
-	portsmtp := string(r.FormValue("portsmtp"))
-	loginsmtp := string(r.FormValue("loginsmtp"))
-	passsmtp := string(r.FormValue("passsmtp"))
-	loginadmin := string(r.FormValue("loginadmin"))
-	passadmin := string(r.FormValue("passadmin"))
-	yandex := string(r.FormValue("yandex"))
-	version := string(r.FormValue("version"))
+	portsmtp := r.FormValue("portsmtp")
+	loginsmtp := r.FormValue("loginsmtp")
+	passsmtp := r.FormValue("passsmtp")
+	loginadmin := r.FormValue("loginadmin")
+	passadmin := r.FormValue("passadmin")
+	yandex := r.FormValue("yandex")
+	version := r.FormValue("version")
 
-	mode, err := strconv.Atoi(string(r.FormValue("mode")))
+	mode, err := strconv.Atoi(r.FormValue("mode"))
 	if err == nil {
 		Options.Mode = mode
 	}
 
-	bufsize, err := strconv.Atoi(string(r.FormValue("bufsize")))
+	bufsize, err := strconv.Atoi(r.FormValue("bufsize"))
 	if err == nil {
 		Options.SizeBuff = bufsize
 	}
@@ -598,7 +598,7 @@ func checkAdminAuth(w http.ResponseWriter, r *http.Request) bool {
 		}
 	}
 
-	LogAdd(MessError, "WWW Аутентификация админки провалилась "+r.RemoteAddr)
+	LogAdd(MessError, "WWW Аутентификация провалилась "+r.RemoteAddr)
 	w.Header().Set("WWW-Authenticate", "Basic")
 	http.Error(w, "auth req", http.StatusUnauthorized)
 	return false

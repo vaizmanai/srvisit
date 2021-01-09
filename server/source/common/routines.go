@@ -329,7 +329,7 @@ func SendEmail(to string, body string) (bool, error) {
 	}
 
 	defer wc.Close()
-	wc.Write([]byte(body))
+	_, _ = wc.Write([]byte(body))
 
 	err = client.Quit()
 	return true, err

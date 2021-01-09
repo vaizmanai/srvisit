@@ -79,6 +79,7 @@ const (
 	WaitPing         = 10
 	WaitIdleAgent    = 2
 	WaitConnection   = 30
+	WriteTimeout     = 3
 
 	ProfilesFilename = "profiles.list"
 )
