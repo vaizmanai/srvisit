@@ -78,6 +78,9 @@ func GetProfileList() []*Profile {
 }
 
 func SaveProfiles() {
+	mutex.Lock()
+	defer mutex.Unlock()
+
 	list := GetProfileList()
 
 	b, err := json.MarshalIndent(list, "", "  ")
