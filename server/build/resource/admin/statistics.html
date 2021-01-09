@@ -156,10 +156,14 @@
                 myMap.geoObjects.add(clusterer);
             }
         }
+
+        function onLoad() {
+            ymaps.ready(init);
+        }
     </script>
 
 </head>
-<body onload='loadMenu(); copyright(); init();'>
+<body onload='loadMenu(); copyright(); onLoad();'>
 
 <script src="/resource/dist/chartist.min.js"></script>
 
