@@ -37,7 +37,7 @@
 			}
 
 			if (m == 'version') {
-				req.open('GET', 'http://server.rvisit.net:8090/api?make=version', true)
+				req.open('GET', 'https://web.rvisit.net/api?make=version', true)
 			}
 			
 			req.send(null)
