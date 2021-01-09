@@ -301,9 +301,9 @@ func processAgentAddBytes(message Message, conn *net.Conn, curNode *Node, id str
 		return
 	}
 
-	bytes, err := strconv.Atoi(message.Messages[0])
+	count, err := strconv.Atoi(message.Messages[0])
 	if err == nil {
-		AddCounter(uint64(bytes))
+		AddCounter(uint64(count))
 	}
 }
 

@@ -26,26 +26,26 @@
         }
     </style>
     <script>
-        var menu = $menu;
-        var clients = $clients;
-        var connections = $connections;
-        var agents = $agents;
+        let menu = $menu;
+        let clients = $clients;
+        let connections = $connections;
+        let agents = $agents;
 
-        var myMap;
+        let myMap;
 
         function getCoord(obj){
-            client = new ymaps.Placemark([obj.Latitude, obj.Longitude], getClientData(obj), getClientOptions());
+            let client = new ymaps.Placemark([obj.Latitude, obj.Longitude], getClientData(obj), getClientOptions());
             clusterer.add(client);
         }
 
         function getAgent(obj){
-            agent = new ymaps.Placemark([obj.Latitude, obj.Longitude], getAgentData(obj), getAgentOptions());
+            let agent = new ymaps.Placemark([obj.Latitude, obj.Longitude], getAgentData(obj), getAgentOptions());
             agent.options.set('zIndex', 680);
             myMap.geoObjects.add(agent);
         }
 
         function getConn(obj){
-            line = new ymaps.GeoObject({
+            let line = new ymaps.GeoObject({
                 geometry: {
                     type: "LineString",
                     coordinates: [
@@ -56,9 +56,9 @@
                 }
             });
 
-            c1 = new ymaps.Placemark([obj.Client1.Latitude, obj.Client1.Longitude], getClientData(obj), getConnOptions());
+            let c1 = new ymaps.Placemark([obj.Client1.Latitude, obj.Client1.Longitude], getClientData(obj), getConnOptions());
             c1.options.set('zIndex', 670);
-            c2 = new ymaps.Placemark([obj.Client2.Latitude, obj.Client2.Longitude], getClientData(obj), getConnOptions());
+            let c2 = new ymaps.Placemark([obj.Client2.Latitude, obj.Client2.Longitude], getClientData(obj), getConnOptions());
             c2.options.set('zIndex', 670);
             myMap.geoObjects.add(c1);
             myMap.geoObjects.add(c2);
