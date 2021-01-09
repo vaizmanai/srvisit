@@ -45,7 +45,7 @@ func LogAdd(TMessage int, Messages string) {
 			}
 		}
 
-		if strings.Contains(Messages, `"TMessage":18,`) {
+		if strings.Contains(Messages, `"TMessage":18,`) || Messages == `{18 []}` {
 			return
 		}
 
