@@ -45,7 +45,6 @@ func LogAdd(TMessage int, Messages string) {
 			}
 		}
 
-		//todo наверное стоит убрать, но пока мешает пинг в логах
 		if strings.Contains(Messages, `"TMessage":18,`) {
 			return
 		}
