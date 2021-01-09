@@ -46,11 +46,11 @@ func LogAdd(TMessage int, Messages string) {
 		}
 
 		//todo наверное стоит убрать, но пока мешает пинг в логах
-		if strings.Contains(Messages, "buff (31): {\"TMessage\":18,\"Messages\":null}") || strings.Contains(Messages, "{18 []}") {
+		if strings.Contains(Messages, `"TMessage":18,`) {
 			return
 		}
 
-		logFile.Write([]byte(fmt.Sprint(time.Now().Format("02 Jan 2006 15:04:05.000000")) + "\t" + messLogText[TMessage] + ":\t" + Messages + "\n"))
+		_, _ = logFile.Write([]byte(fmt.Sprint(time.Now().Format("02 Jan 2006 15:04:05.000000")) + "\t" + messLogText[TMessage] + ":\t" + Messages + "\n"))
 		fmt.Println(fmt.Sprint(time.Now().Format("02 Jan 2006 15:04:05.000000")) + "\t" + messLogText[TMessage] + ":\t" + Messages)
 
 		fs, err := logFile.Stat()
@@ -58,11 +58,11 @@ func LogAdd(TMessage int, Messages string) {
 			return
 		}
 		if fs.Size() > LogSize {
-			logFile.Close()
+			_ = logFile.Close()
 			if Options.Mode == ModeNode {
-				os.Rename("node_"+LogFilename, "node_"+LogFilename+".back")
+				_ = os.Rename("node_"+LogFilename, "node_"+LogFilename+".back")
 			} else {
-				os.Rename(LogFilename, LogFilename+".back")
+				_ = os.Rename(LogFilename, LogFilename+".back")
 			}
 			logFile = nil
 		}
@@ -72,7 +72,7 @@ func LogAdd(TMessage int, Messages string) {
 
 func ClearLog() {
 	if logFile != nil {
-		logFile.Close()
+		_ = logFile.Close()
 		logFile = nil
 	}
 }
@@ -147,20 +147,20 @@ func SwiftCounter() {
 		if time.Now().Day() != counterData.currentPos.Day() {
 			counterData.CounterDayWeekBytes[int(time.Now().Weekday())] = 0
 			counterData.CounterDayWeekConnections[int(time.Now().Weekday())] = 0
-			counterData.CounterDayWeekClients[time.Now().Weekday()] = counterData.CounterClients[int(counterData.currentPos.Hour())]
+			counterData.CounterDayWeekClients[time.Now().Weekday()] = counterData.CounterClients[counterData.currentPos.Hour()]
 
-			counterData.CounterDayBytes[int(time.Now().Day()-1)] = 0
-			counterData.CounterDayConnections[int(time.Now().Day()-1)] = 0
-			counterData.CounterDayClients[time.Now().Day()-1] = counterData.CounterClients[int(counterData.currentPos.Hour())]
+			counterData.CounterDayBytes[(time.Now().Day() - 1)] = 0
+			counterData.CounterDayConnections[(time.Now().Day() - 1)] = 0
+			counterData.CounterDayClients[time.Now().Day()-1] = counterData.CounterClients[counterData.currentPos.Hour()]
 
-			counterData.CounterDayYearBytes[int(time.Now().YearDay()-1)] = 0
-			counterData.CounterDayYearConnections[int(time.Now().YearDay()-1)] = 0
-			counterData.CounterDayYearClients[time.Now().YearDay()-1] = counterData.CounterClients[int(counterData.currentPos.Hour())]
+			counterData.CounterDayYearBytes[(time.Now().YearDay() - 1)] = 0
+			counterData.CounterDayYearConnections[(time.Now().YearDay() - 1)] = 0
+			counterData.CounterDayYearClients[time.Now().YearDay()-1] = counterData.CounterClients[counterData.currentPos.Hour()]
 
 			if time.Now().Month() != counterData.currentPos.Month() {
 				counterData.CounterMonthBytes[int(time.Now().Month()-1)] = 0
 				counterData.CounterMonthConnections[int(time.Now().Month()-1)] = 0
-				counterData.CounterMonthClients[time.Now().Month()-1] = counterData.CounterClients[int(counterData.currentPos.Hour())]
+				counterData.CounterMonthClients[time.Now().Month()-1] = counterData.CounterClients[counterData.currentPos.Hour()]
 			}
 		}
 
@@ -178,7 +178,7 @@ func SaveCounters() {
 			if n != len(b) || err != nil {
 				LogAdd(MessError, "Не удалось сохранить счетчики: "+fmt.Sprint(err))
 			}
-			f.Close()
+			_ = f.Close()
 		} else {
 			LogAdd(MessError, "Не удалось сохранить счетчики: "+fmt.Sprint(err))
 		}
@@ -206,24 +206,24 @@ func LoadCounters() {
 		LogAdd(MessError, "Не получилось загрузить счетчики: "+fmt.Sprint(err))
 	}
 
-	counterData.CounterClients[int(counterData.currentPos.Hour())] = 0
+	counterData.CounterClients[counterData.currentPos.Hour()] = 0
 }
 
 func AddCounter(bytes uint64) {
 	counterData.mutex.Lock()
 	defer counterData.mutex.Unlock()
 
-	counterData.CounterBytes[int(counterData.currentPos.Hour())] = counterData.CounterBytes[int(counterData.currentPos.Hour())] + bytes
-	counterData.CounterConnections[int(counterData.currentPos.Hour())] = counterData.CounterConnections[int(counterData.currentPos.Hour())] + 1
+	counterData.CounterBytes[counterData.currentPos.Hour()] = counterData.CounterBytes[counterData.currentPos.Hour()] + bytes
+	counterData.CounterConnections[counterData.currentPos.Hour()] = counterData.CounterConnections[counterData.currentPos.Hour()] + 1
 
 	counterData.CounterDayWeekBytes[int(counterData.currentPos.Weekday())] = counterData.CounterDayWeekBytes[int(counterData.currentPos.Weekday())] + bytes
 	counterData.CounterDayWeekConnections[int(counterData.currentPos.Weekday())] = counterData.CounterDayWeekConnections[int(counterData.currentPos.Weekday())] + 1
 
-	counterData.CounterDayBytes[int(counterData.currentPos.Day()-1)] = counterData.CounterDayBytes[int(counterData.currentPos.Day()-1)] + bytes
-	counterData.CounterDayConnections[int(counterData.currentPos.Day()-1)] = counterData.CounterDayConnections[int(counterData.currentPos.Day()-1)] + 1
+	counterData.CounterDayBytes[(counterData.currentPos.Day() - 1)] = counterData.CounterDayBytes[(counterData.currentPos.Day()-1)] + bytes
+	counterData.CounterDayConnections[(counterData.currentPos.Day() - 1)] = counterData.CounterDayConnections[(counterData.currentPos.Day()-1)] + 1
 
-	counterData.CounterDayYearBytes[int(counterData.currentPos.YearDay()-1)] = counterData.CounterDayYearBytes[int(counterData.currentPos.YearDay()-1)] + bytes
-	counterData.CounterDayYearConnections[int(counterData.currentPos.YearDay()-1)] = counterData.CounterDayYearConnections[int(counterData.currentPos.YearDay()-1)] + 1
+	counterData.CounterDayYearBytes[(counterData.currentPos.YearDay() - 1)] = counterData.CounterDayYearBytes[(counterData.currentPos.YearDay()-1)] + bytes
+	counterData.CounterDayYearConnections[(counterData.currentPos.YearDay() - 1)] = counterData.CounterDayYearConnections[(counterData.currentPos.YearDay()-1)] + 1
 
 	counterData.CounterMonthBytes[int(counterData.currentPos.Month()-1)] = counterData.CounterMonthBytes[int(counterData.currentPos.Month()-1)] + bytes
 	counterData.CounterMonthConnections[int(counterData.currentPos.Month()-1)] = counterData.CounterMonthConnections[int(counterData.currentPos.Month()-1)] + 1
@@ -235,24 +235,24 @@ func UpdateCounterClient(adding bool) {
 	defer counterData.mutex.Unlock()
 
 	if adding {
-		counterData.CounterClients[int(counterData.currentPos.Hour())] = counterData.CounterClients[int(counterData.currentPos.Hour())] + 1
+		counterData.CounterClients[counterData.currentPos.Hour()] = counterData.CounterClients[counterData.currentPos.Hour()] + 1
 	} else {
-		counterData.CounterClients[int(counterData.currentPos.Hour())] = counterData.CounterClients[int(counterData.currentPos.Hour())] - 1
+		counterData.CounterClients[counterData.currentPos.Hour()] = counterData.CounterClients[counterData.currentPos.Hour()] - 1
 		return
 	}
 
-	count := counterData.CounterClients[int(counterData.currentPos.Hour())]
+	count := counterData.CounterClients[counterData.currentPos.Hour()]
 
 	if counterData.CounterDayWeekClients[int(counterData.currentPos.Weekday())] < count {
 		counterData.CounterDayWeekClients[int(counterData.currentPos.Weekday())] = count
 	}
 
-	if counterData.CounterDayClients[int(counterData.currentPos.Day()-1)] < count {
-		counterData.CounterDayClients[int(counterData.currentPos.Day()-1)] = count
+	if counterData.CounterDayClients[(counterData.currentPos.Day()-1)] < count {
+		counterData.CounterDayClients[(counterData.currentPos.Day() - 1)] = count
 	}
 
-	if counterData.CounterDayYearClients[int(counterData.currentPos.YearDay()-1)] < count {
-		counterData.CounterDayYearClients[int(counterData.currentPos.YearDay()-1)] = count
+	if counterData.CounterDayYearClients[(counterData.currentPos.YearDay()-1)] < count {
+		counterData.CounterDayYearClients[(counterData.currentPos.YearDay() - 1)] = count
 	}
 
 	if counterData.CounterMonthClients[int(counterData.currentPos.Month()-1)] < count {
@@ -336,7 +336,7 @@ func SendEmail(to string, body string) (bool, error) {
 }
 
 func GetCounterHour() []string {
-	return getCounter(counterData.CounterBytes[:], counterData.CounterConnections[:], counterData.CounterClients[:], 24, int(counterData.currentPos.Hour()))
+	return getCounter(counterData.CounterBytes[:], counterData.CounterConnections[:], counterData.CounterClients[:], 24, counterData.currentPos.Hour())
 }
 
 func GetCounterDayWeek() []string {
@@ -344,11 +344,11 @@ func GetCounterDayWeek() []string {
 }
 
 func GetCounterDay() []string {
-	return getCounter(counterData.CounterDayBytes[:], counterData.CounterDayConnections[:], counterData.CounterDayClients[:], 31, int(counterData.currentPos.Day()-1))
+	return getCounter(counterData.CounterDayBytes[:], counterData.CounterDayConnections[:], counterData.CounterDayClients[:], 31, counterData.currentPos.Day()-1)
 }
 
 func GetCounterDayYear() []string {
-	return getCounter(counterData.CounterDayYearBytes[:], counterData.CounterDayYearConnections[:], counterData.CounterDayYearClients[:], 365, int(counterData.currentPos.YearDay()-1))
+	return getCounter(counterData.CounterDayYearBytes[:], counterData.CounterDayYearConnections[:], counterData.CounterDayYearClients[:], 365, counterData.currentPos.YearDay()-1)
 }
 
 func GetCounterMonth() []string {
