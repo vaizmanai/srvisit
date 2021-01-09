@@ -253,7 +253,6 @@ func handleResources(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleStatistics(w http.ResponseWriter, r *http.Request) {
-
 	if !checkAdminAuth(w, r) {
 		return
 	}
@@ -261,7 +260,7 @@ func handleStatistics(w http.ResponseWriter, r *http.Request) {
 	file, _ := os.Open("resource/admin/statistics.html")
 	body, err := ioutil.ReadAll(file)
 	if err == nil {
-		file.Close()
+		_ = file.Close()
 
 		body = pageReplace(body, "$menu", addMenuAdmin())
 		body = pageReplace(body, "$clients", addClientsStatisticsAdmin())
@@ -298,10 +297,9 @@ func handleStatistics(w http.ResponseWriter, r *http.Request) {
 		body = pageReplace(body, "$values10", charts[2])
 		body = pageReplace(body, "$values25", charts[3])
 
-		w.Write(body)
+		_, _ = w.Write(body)
 		return
 	}
-
 }
 
 func handleOptions(w http.ResponseWriter, r *http.Request) {
@@ -313,11 +311,11 @@ func handleOptions(w http.ResponseWriter, r *http.Request) {
 	file, _ := os.Open("resource/admin/Options.html")
 	body, err := ioutil.ReadAll(file)
 	if err == nil {
-		file.Close()
+		_ = file.Close()
 
 		body = pageReplace(body, "$menu", addMenuAdmin())
 		//body = pageReplace(body, "$logs", logsString)
-		w.Write(body)
+		_, _ = w.Write(body)
 		return
 	}
 
@@ -332,11 +330,11 @@ func handleLogs(w http.ResponseWriter, r *http.Request) {
 	file, _ := os.Open("resource/admin/logs.html")
 	body, err := ioutil.ReadAll(file)
 	if err == nil {
-		file.Close()
+		_ = file.Close()
 
 		body = pageReplace(body, "$menu", addMenuAdmin())
 		//body = pageReplace(body, "$logs", logsString)
-		w.Write(body)
+		_, _ = w.Write(body)
 		return
 	}
 
@@ -378,7 +376,7 @@ func processApiDefaultVnc(w http.ResponseWriter, r *http.Request) {
 			LogAdd(MessError, "WEB Не получилось отправить версию VNC")
 			return
 		}
-		w.Write(buff)
+		_, _ = w.Write(buff)
 		return
 	}
 	http.Error(w, "vnc is not prepared", http.StatusNotAcceptable)
@@ -392,7 +390,7 @@ func processApiListVnc(w http.ResponseWriter, r *http.Request) {
 		LogAdd(MessError, "WEB Не получилось отправить список VNC")
 		return
 	}
-	w.Write(buff)
+	_, _ = w.Write(buff)
 }
 
 func processApiGetLog(w http.ResponseWriter, r *http.Request) {
@@ -450,7 +448,7 @@ func processApiProfileGet(w http.ResponseWriter, r *http.Request) {
 	newProfile.Pass = "*****"
 	b, err := json.Marshal(&newProfile)
 	if err == nil {
-		w.Write(b)
+		_, _ = w.Write(b)
 		return
 	}
 
@@ -513,7 +511,7 @@ func processApiVersion(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.WriteHeader(http.StatusOK)
-	w.Write(b)
+	_, _ = w.Write(b)
 }
 
 func processApiOptionsGet(w http.ResponseWriter, r *http.Request) {
@@ -525,7 +523,7 @@ func processApiOptionsGet(w http.ResponseWriter, r *http.Request) {
 
 	b, err := json.Marshal(Options)
 	if err == nil {
-		w.Write(b)
+		_, _ = w.Write(b)
 		return
 	}
 

@@ -159,7 +159,7 @@ func createMessage(TMessage int, Messages ...string) Message {
 	return mes
 }
 
-func Ping(conn *net.Conn) {
+func ping(conn *net.Conn) {
 	success := true
 	for success {
 		time.Sleep(time.Second * WaitPing)

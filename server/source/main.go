@@ -4,15 +4,19 @@ import (
 	"./common"
 	"./component/profile"
 	"./service"
-	"fmt"
 	"math/rand"
 	"os"
+	"os/signal"
 	"runtime"
 	"strings"
+	"syscall"
 	"time"
 )
 
 func main() {
+	interrupt := make(chan os.Signal, 1)
+	signal.Notify(interrupt, os.Interrupt, syscall.SIGTERM)
+
 	for _, x := range os.Args {
 		if strings.Contains(x, "node") {
 			common.Options.Mode = common.ModeNode
@@ -49,13 +53,15 @@ func main() {
 	}
 
 	if common.Options.Mode == common.ModeNode {
-		go service.NodeClient() //клинет подключающийся к мастеру
+		go service.NodeClient() //клиент подключающийся к мастеру
 	}
 
-	var r string
-	for r != "quit" {
-		fmt.Scanln(&r)
-		time.Sleep(time.Millisecond * common.WaitIdle) //если запустить без консоли, то здесь цикл со 100% загрузкой процессора
+	killSignal := <-interrupt
+	switch killSignal {
+	case os.Interrupt:
+		common.LogAdd(common.MessInfo, "got SIGINT...")
+	case syscall.SIGTERM:
+		common.LogAdd(common.MessInfo, "got SIGTERM...")
 	}
 
 	common.LogAdd(common.MessInfo, "Завершили работу")

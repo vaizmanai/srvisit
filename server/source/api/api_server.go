@@ -19,7 +19,7 @@ func HandleGetClientsList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Write(b)
+	_, _ = w.Write(b)
 }
 
 //Getting full profiles list
@@ -31,7 +31,7 @@ func HandleGetProfileList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Write(b)
+	_, _ = w.Write(b)
 }
 
 //Getting content of log file
@@ -50,7 +50,7 @@ func HandleGetLog(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Write(log)
+	_, _ = w.Write(log)
 }
 
 //Clear log file

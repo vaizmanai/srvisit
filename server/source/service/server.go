@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
-	"os"
 	"runtime/debug"
 	"strconv"
 	"time"
@@ -20,7 +19,7 @@ func recoverMainServer(conn *net.Conn) {
 		debug.PrintStack()
 
 		if conn != nil {
-			(*conn).Close()
+			_ = (*conn).Close()
 		}
 	}
 }
@@ -31,7 +30,7 @@ func recoverDataServer(conn *net.Conn) {
 		debug.PrintStack()
 
 		if conn != nil {
-			(*conn).Close()
+			_ = (*conn).Close()
 		}
 	}
 }
@@ -42,7 +41,7 @@ func MainServer() {
 	ln, err := net.Listen("tcp", ":"+Options.MainServerPort)
 	if err != nil {
 		LogAdd(MessError, "mainServer не смог занять порт")
-		os.Exit(1)
+		panic(err.Error())
 	}
 
 	for {
@@ -52,11 +51,11 @@ func MainServer() {
 			break
 		}
 
-		go Ping(&conn)
+		go ping(&conn)
 		go mainHandler(&conn)
 	}
 
-	ln.Close()
+	_ = ln.Close()
 	LogAdd(MessInfo, "mainServer остановился")
 }
 
@@ -102,6 +101,7 @@ func mainHandler(conn *net.Conn) {
 		//обрабатываем полученное сообщение
 		if len(Processing) > message.TMessage {
 			if Processing[message.TMessage].Processing != nil {
+				//todo вот тут наверное у нас что-то с таймаутом надо бы
 				Processing[message.TMessage].Processing(message, conn, &curClient, id)
 			} else {
 				LogAdd(MessInfo, id+" нет обработчика для сообщения "+fmt.Sprint(message.TMessage))
@@ -113,7 +113,7 @@ func mainHandler(conn *net.Conn) {
 		}
 
 	}
-	(*conn).Close()
+	_ = (*conn).Close()
 
 	//удалим связи с профилем
 	if curClient.Profile != nil {
@@ -141,7 +141,7 @@ func DataServer() {
 	ln, err := net.Listen("tcp", ":"+Options.DataServerPort)
 	if err != nil {
 		LogAdd(MessError, "dataServer не смог занять порт")
-		os.Exit(1)
+		panic(err.Error())
 	}
 
 	for {
@@ -154,7 +154,7 @@ func DataServer() {
 		go dataHandler(&conn)
 	}
 
-	ln.Close()
+	_ = ln.Close()
 	LogAdd(MessInfo, "dataServer остановился")
 }
 
@@ -243,7 +243,7 @@ func dataHandler(conn *net.Conn) {
 				LogAdd(MessInfo, id+" err2: "+fmt.Sprint(err2))
 				time.Sleep(time.Millisecond * WaitAfterConnect)
 				if peers.pointer[numPeer] != nil {
-					(*peers.pointer[numPeer]).Close()
+					_ = (*peers.pointer[numPeer]).Close()
 				}
 				break
 			}
@@ -258,9 +258,8 @@ func dataHandler(conn *net.Conn) {
 		disconnectPeers(code)
 		break
 	}
-	(*conn).Close()
+	_ = (*conn).Close()
 	LogAdd(MessInfo, id+" dataHandler потерял соединение")
-
 }
 
 func disconnectPeers(code string) {
@@ -271,10 +270,10 @@ func disconnectPeers(code string) {
 
 		if Options.Mode != ModeMaster {
 			if pair.pointer[0] != nil {
-				(*pair.pointer[0]).Close()
+				_ = (*pair.pointer[0]).Close()
 			}
 			if pair.pointer[1] != nil {
-				(*pair.pointer[1]).Close()
+				_ = (*pair.pointer[1]).Close()
 			}
 		}
 		if Options.Mode == ModeMaster {

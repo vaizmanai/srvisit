@@ -29,7 +29,7 @@ func MasterServer() {
 			break
 		}
 
-		go Ping(&conn)
+		go ping(&conn)
 		go masterHandler(&conn)
 	}
 
@@ -132,7 +132,7 @@ func NodeClient() {
 		}
 		sendMessage(&conn, TMESS_AGENT_AUTH, hostname, Options.MasterPassword, ReVisitVersion, fmt.Sprint(coordinates[0], ";", coordinates[1]))
 
-		go Ping(&conn)
+		go ping(&conn)
 
 		reader := bufio.NewReader(conn)
 		for {

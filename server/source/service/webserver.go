@@ -91,7 +91,7 @@ func checkAuth(f func(w http.ResponseWriter, r *http.Request, client *Client)) h
 }
 
 func checkAdmin(f func(w http.ResponseWriter, r *http.Request)) http.HandlerFunc {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
 		user, pass, ok := r.BasicAuth()
 		if ok {
 			if user == Options.AdminLogin && pass == Options.AdminPass {
@@ -100,11 +100,11 @@ func checkAdmin(f func(w http.ResponseWriter, r *http.Request)) http.HandlerFunc
 			}
 		}
 
-		LogAdd(MessError, "WWW Аутентификация админки провалилась "+r.RemoteAddr)
+		time.Sleep(time.Second)
+		LogAdd(MessError, "WWW Аутентификация провалилась "+r.RemoteAddr)
 		w.Header().Set("WWW-Authenticate", "Basic")
 		http.Error(w, "auth req", http.StatusUnauthorized)
-		return
-	})
+	}
 }
 
 func handleCORS(h http.Handler) http.Handler {
@@ -118,7 +118,7 @@ func handleCORS(h http.Handler) http.Handler {
 		w.Header().Set("Access-Control-Allow-Headers", "Authorization, X-Requested-With, X-HTTP-Method-Override, Content-Type, Accept")
 
 		if r.Method == "OPTIONS" {
-			w.Write([]byte("ok"))
+			_, _ = w.Write([]byte("ok"))
 			return
 		}
 
@@ -127,9 +127,9 @@ func handleCORS(h http.Handler) http.Handler {
 }
 
 func handleAuth(w http.ResponseWriter, r *http.Request) {
-	pid := string(r.FormValue("abc"))
-	token := string(r.FormValue("cba"))
-	destination := string(r.FormValue("destination"))
+	pid := r.FormValue("abc")
+	token := r.FormValue("cba")
+	destination := r.FormValue("destination")
 
 	LogAdd(MessInfo, "trying to auth app "+pid)
 
@@ -141,11 +141,11 @@ func handleAuth(w http.ResponseWriter, r *http.Request) {
 			if webIp != clientIp {
 				continue
 			}
-      
-			cookie_pid := http.Cookie{Name: "abc", Value: pid, Expires: time.Now().Add(WebSessionTimeoutHour * time.Hour)}
-			cookie_token := http.Cookie{Name: "cba", Value: token, Expires: time.Now().Add(WebSessionTimeoutHour * time.Hour)}
-			http.SetCookie(w, &cookie_pid)
-			http.SetCookie(w, &cookie_token)
+
+			cookiePid := http.Cookie{Name: "abc", Value: pid, Expires: time.Now().Add(WebSessionTimeoutHour * time.Hour)}
+			cookieToken := http.Cookie{Name: "cba", Value: token, Expires: time.Now().Add(WebSessionTimeoutHour * time.Hour)}
+			http.SetCookie(w, &cookiePid)
+			http.SetCookie(w, &cookieToken)
 			http.Redirect(w, r, destination, http.StatusTemporaryRedirect)
 			return
 		}
