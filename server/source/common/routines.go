@@ -385,7 +385,7 @@ func getCounter(bytes []uint64, connections []uint64, clients []uint64, maxIndex
 
 	stringValues1 := "["
 	for i := 0; i < maxIndex; i++ {
-		stringValues1 = stringValues1 + fmt.Sprint(values1[i]/1024) //in Kb
+		stringValues1 = stringValues1 + fmt.Sprint(values1[i]/1024/1024) //in Mb
 		if i != maxIndex-1 {
 			stringValues1 = stringValues1 + ", "
 		}

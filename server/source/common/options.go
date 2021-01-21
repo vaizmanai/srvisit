@@ -121,9 +121,9 @@ var (
 		CounterDayConnections [31]uint64
 		CounterDayClients     [31]uint64
 
-		CounterDayYearBytes       [365]uint64
-		CounterDayYearConnections [365]uint64
-		CounterDayYearClients     [365]uint64
+		CounterDayYearBytes       [366]uint64
+		CounterDayYearConnections [366]uint64
+		CounterDayYearClients     [366]uint64
 
 		CounterMonthBytes       [12]uint64
 		CounterMonthConnections [12]uint64
