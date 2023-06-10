@@ -4,7 +4,7 @@
 				if (navigator.language == "ru-RU") {
 					window.location="/index_ru.html?lang=ru"
 				}else{
-					window.location="/index.html?lang=eng"
+					window.location="/index.html?lang=en"
 				}
 			}			
 		}
