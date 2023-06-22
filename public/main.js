@@ -1,11 +1,11 @@
 		function checkLang(){
 			var lang = gup("lang",window.location.href);
 			if (lang == null) {
-				if (navigator.language == "ru-RU") {
+				//if (location.host === "rvisit.ru") {
 					window.location="/index_ru.html?lang=ru"
-				}else{
-					window.location="/index.html?lang=en"
-				}
+				//}else{
+				//	window.location="/index.html?lang=en"
+				//}
 			}			
 		}
 
