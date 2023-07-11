@@ -212,6 +212,7 @@ func HelperThread() {
 	log.Infof("helperThread запустился")
 	for true {
 		profile.SaveProfiles()
+		common.CleanOldCacheCoordinates()
 		common.SwiftCounter()
 		debug.FreeOSMemory()
 		common.RotateLogFiles()

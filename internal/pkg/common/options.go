@@ -9,10 +9,9 @@ import (
 )
 
 const (
-	//ReVisitVersion - версия сервера или ноды, пока не используется
-	ReVisitVersion = "0.7"
+	WhitelabelName    = "reVisit server"
+	WhitelabelVersion = "0.7"
 
-	//общие константы
 	CodeLength     = 64 //длина code
 	PasswordLength = 14
 
@@ -25,16 +24,8 @@ const (
 	WebSessionTimeoutHour = 2
 	PredefinedPass        = "0000"
 	UriServiceIpIFY       = "https://api.ipify.org/"
-	UriYandexMap          = "http://api.lbs.yandex.net/geolocation"
-	ReqYandexMap          = `{
-                              "common": {
-                                "version": "1.0",
-                                "api_key": "%s"
-                              },
-                              "ip": {
-                                "address_v4": "%s"
-                              }
-                             }`
+	UriYandexMap          = "https://api.lbs.yandex.net/geolocation"
+	ReqYandexMap          = `{"common": {"version": "1.0","api_key": "%s"},"ip": {"address_v4": "%s"}}`
 
 	//константы ограничений
 	MinimalVersionForNodes       = 0.97
@@ -86,21 +77,22 @@ const (
 var (
 	//опции по-умолчанию
 	Options = options{
-		MainServerPort:  "65471",
-		DataServerPort:  "65475",
-		HttpServerPort:  "8090",
-		HttpsServerPort: "8091",
-		HttpsCertPath:   "cert.pem",
-		HttpsKeyPath:    "key.pem",
-		SizeBuff:        16000,
-		AdminLogin:      "admin",
-		AdminPass:       "admin",
-		Mode:            ModeRegular,
-		MyCoordinates:   [2]float64{0, 0},
-		MasterServer:    "data.rvisit.net",
-		MasterPort:      "65470",
-		MasterPassword:  "master",
-		LogLevel:        log.DebugLevel,
+		MainServerPort:                "65471",
+		DataServerPort:                "65475",
+		HttpServerPort:                "8090",
+		HttpsServerPort:               "8091",
+		HttpsCertPath:                 "cert.pem",
+		HttpsKeyPath:                  "key.pem",
+		SizeBuff:                      16000,
+		AdminLogin:                    "admin",
+		AdminPass:                     "admin",
+		Mode:                          ModeRegular,
+		MyCoordinates:                 [2]float64{0, 0},
+		MasterServer:                  "data.rvisit.net",
+		MasterPort:                    "65470",
+		MasterPassword:                "master",
+		LogLevel:                      log.DebugLevel,
+		IpCoordinateCacheTimeoutHours: 48,
 	}
 
 	//считаем всякую бесполезную информацию или нет
@@ -174,7 +166,8 @@ type options struct {
 	//актуальная версия клиента, используем при обновлении и на сайте
 	Version string
 
-	LogLevel log.Level
+	LogLevel                      log.Level
+	IpCoordinateCacheTimeoutHours int
 }
 
 // информация о внц и основные команды для управления им

@@ -228,11 +228,9 @@ func processReg(message Message, conn *net.Conn, curClient *client.Client, id st
 
 		if len(common.Options.ServerSMTP) > 0 {
 			newProfile.Pass = common.RandomString(common.PasswordLength)
-			msg := "Subject: Information from reVisit\r\n\r\nYour password is " + newProfile.Pass + "\r\n"
-			success, err := common.SendEmail(message.Messages[0], msg)
-			if !success {
+			if _, err := common.SendEmail(message.Messages[0], fmt.Sprintf("Information from %s", common.WhitelabelName), fmt.Sprintf("Your password is %s", newProfile.Pass)); err != nil {
 				profile.DelProfile(newProfile.Email)
-				log.Errorf("%s не удалось отправить письмо с паролем: %v", id, err)
+				log.Errorf("%s не удалось отправить письмо с паролем: %s", id, err.Error())
 				if curClient.GreaterVersionThan(common.MinimalVersionForStaticAlert) {
 					sendMessage(conn, TMessStandardAlert, fmt.Sprint(common.StaticMessageRegMail))
 				} else {

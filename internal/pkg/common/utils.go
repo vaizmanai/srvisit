@@ -2,24 +2,30 @@ package common
 
 import (
 	"crypto/sha256"
-	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	log "github.com/sirupsen/logrus"
+	mail "github.com/xhit/go-simple-mail/v2"
 	"io"
 	"math/rand"
 	"net"
 	"net/http"
-	"net/smtp"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
 var (
 	//файл для хранения лога
-	logFile *os.File
+	logFile            *os.File
+	ipCoordinatesCache = map[string]struct {
+		created time.Time
+		values  [2]float64
+	}{}
+	mutex = sync.Mutex{}
 )
 
 func init() {
@@ -250,9 +256,15 @@ func UpdateCounterClient(adding bool) {
 }
 
 func GetCoordinatesByYandex(addr string) [2]float64 {
-	//todo add cache
+	mutex.Lock()
+	defer mutex.Unlock()
+	if v, ok := ipCoordinatesCache[addr]; ok {
+		if int(time.Now().Sub(v.created).Hours()) < int(time.Hour)*Options.IpCoordinateCacheTimeoutHours {
+			return v.values
+		}
+	}
 
-	resp, err := http.Post(UriYandexMap, "application/x-www-form-urlencoded", strings.NewReader("json="+url.QueryEscape(fmt.Sprintf(ReqYandexMap, Options.YandexApiKeyMap, addr))))
+	resp, err := http.Post(UriYandexMap, "application/x-www-form-urlencoded", strings.NewReader(fmt.Sprintf("json=%s", url.QueryEscape(fmt.Sprintf(ReqYandexMap, Options.YandexApiKeyMap, addr)))))
 	if err != nil {
 		//todo надо мой айпи адрес как-то указать
 		return [2]float64{0, 0}
@@ -271,7 +283,22 @@ func GetCoordinatesByYandex(addr string) [2]float64 {
 		return [2]float64{0, 0}
 	}
 
-	return [2]float64{respYandex.Position.Latitude, respYandex.Position.Longitude}
+	item := ipCoordinatesCache[addr]
+	item.created = time.Now()
+	item.values = [2]float64{respYandex.Position.Latitude, respYandex.Position.Longitude}
+	ipCoordinatesCache[addr] = item
+	return item.values
+}
+
+func CleanOldCacheCoordinates() {
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	for k, v := range ipCoordinatesCache {
+		if int(time.Now().Sub(v.created).Hours()) > int(time.Hour)*Options.IpCoordinateCacheTimeoutHours {
+			delete(ipCoordinatesCache, k)
+		}
+	}
 }
 
 func GetSHA256(str string) string {
@@ -286,44 +313,43 @@ func GetSHA256(str string) string {
 	return r
 }
 
-func SendEmail(to string, body string) (bool, error) {
-	emailConn, err := tls.Dial("tcp", Options.ServerSMTP+":"+Options.PortSMTP, &tls.Config{InsecureSkipVerify: true})
+func SendEmail(to, subject, body string) (bool, error) {
+	client := mail.NewSMTPClient()
+
+	client.Host = Options.ServerSMTP
+	client.Port, _ = strconv.Atoi(Options.PortSMTP)
+	client.Username = Options.LoginSMTP
+	client.Password = Options.PassSMTP
+	client.KeepAlive = false
+	client.Helo = fmt.Sprintf("%s %s", WhitelabelName, WhitelabelVersion)
+
+	smtpClient, err := client.Connect()
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("connecting: %w", err)
 	}
 
-	defer emailConn.Close()
-
-	client, err := smtp.NewClient(emailConn, Options.ServerSMTP)
-	if err != nil {
-		return false, err
+	if err = smtpClient.Noop(); err != nil {
+		return false, fmt.Errorf("noop: %w", err)
 	}
 
-	err = client.Auth(smtp.PlainAuth("", Options.LoginSMTP, Options.PassSMTP, Options.ServerSMTP))
-	if err != nil {
-		return false, err
+	email := mail.NewMSG()
+	email.SetFrom(Options.LoginSMTP).
+		AddTo(to).
+		SetSubject(subject)
+	email.SetBody(mail.TextHTML, body)
+
+	if email.Error != nil {
+		return false, fmt.Errorf("generating: %w", err)
 	}
 
-	err = client.Mail(Options.LoginSMTP)
-	if err != nil {
-		return false, err
+	if err = email.Send(smtpClient); err != nil {
+		return false, fmt.Errorf("sending: %w", err)
 	}
 
-	err = client.Rcpt(to)
-	if err != nil {
-		return false, err
+	if err = email.GetError(); err != nil {
+		return false, fmt.Errorf("error: %w", err)
 	}
-
-	wc, err := client.Data()
-	if err != nil {
-		return false, err
-	}
-
-	defer wc.Close()
-	_, _ = wc.Write([]byte(body))
-
-	err = client.Quit()
-	return true, err
+	return true, nil
 }
 
 func GetCounterHour() []string {

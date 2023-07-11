@@ -25,7 +25,7 @@ func main() {
 		}
 	}
 
-	log.Infof("запускается сервер reVisit версии %s", common.ReVisitVersion)
+	log.Infof("запускается сервер reVisit версии %s", common.WhitelabelVersion)
 
 	rand.Seed(time.Now().UTC().UnixNano())
 

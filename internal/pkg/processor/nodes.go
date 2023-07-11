@@ -131,7 +131,7 @@ func NodeClient() {
 		if len(common.Options.Hostname) > 0 {
 			hostname = common.Options.Hostname
 		}
-		sendMessage(&conn, TMessAgentAuth, hostname, common.Options.MasterPassword, common.ReVisitVersion, fmt.Sprintf("%f;%f", coordinates[0], coordinates[1]))
+		sendMessage(&conn, TMessAgentAuth, hostname, common.Options.MasterPassword, common.WhitelabelVersion, fmt.Sprintf("%f;%f", coordinates[0], coordinates[1]))
 
 		go ping(&conn)
 
@@ -209,7 +209,7 @@ func processAgentAuth(message Message, conn *net.Conn, curNode *Node, id string)
 		return
 	}
 
-	if message.Messages[2] != common.ReVisitVersion {
+	if message.Messages[2] != common.WhitelabelVersion {
 		log.Errorf("%s не совместимая версия", id)
 		(*conn).Close()
 		return

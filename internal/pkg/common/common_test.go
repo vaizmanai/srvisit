@@ -20,7 +20,7 @@ func TestStaticCommon(t *testing.T) {
 
 	require.True(t, len(RandomString(128)) == 128)
 
-	sent, _ := SendEmail("", "")
+	sent, _ := SendEmail("", "", "")
 	require.True(t, sent == false)
 }
 
