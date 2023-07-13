@@ -100,7 +100,7 @@ func checkAdmin(f func(w http.ResponseWriter, r *http.Request)) http.HandlerFunc
 		}
 
 		time.Sleep(time.Second)
-		log.Errorf("WWW Аутентификация провалилась " + r.RemoteAddr)
+		log.Errorf("WWW Аутентификация провалилась %s", r.RemoteAddr)
 		w.Header().Set("WWW-Authenticate", "Basic")
 		http.Error(w, "auth req", http.StatusUnauthorized)
 	}
@@ -128,7 +128,7 @@ func handleAuth(w http.ResponseWriter, r *http.Request) {
 	token := r.FormValue("cba")
 	destination := r.FormValue("destination")
 
-	log.Infof("trying to auth app " + pid)
+	log.Infof("trying to auth app %s", pid)
 
 	list := client.GetClientsList(pid)
 	for _, c := range list {

@@ -7,7 +7,7 @@ import (
 	"srvisit/internal/pkg/client"
 )
 
-// Getting authorized client info
+// HandleGetClient getting authorized client info
 func HandleGetClient(w http.ResponseWriter, r *http.Request, client *client.Client) {
 	b, err := json.Marshal(client)
 	if err != nil {

@@ -93,7 +93,7 @@ func (client *TestClient) Check() bool {
 	return true
 }
 
-func (TestClient) Read(b []byte) (n int, err error) {
+func (client *TestClient) Read(b []byte) (n int, err error) {
 	return len(b), nil
 }
 
@@ -171,7 +171,7 @@ func (client *TestClient) Write(b []byte) (n int, err error) {
 	return len(b), nil
 }
 
-func (TestClient) Close() error {
+func (client *TestClient) Close() error {
 	return nil
 }
 
@@ -187,15 +187,15 @@ func (client *TestClient) RemoteAddr() net.Addr {
 	return TestAddr{local: false}
 }
 
-func (TestClient) SetDeadline(t time.Time) error {
+func (client *TestClient) SetDeadline(_ time.Time) error {
 	return nil
 }
 
-func (TestClient) SetReadDeadline(t time.Time) error {
+func (client *TestClient) SetReadDeadline(_ time.Time) error {
 	return nil
 }
 
-func (TestClient) SetWriteDeadline(t time.Time) error {
+func (client *TestClient) SetWriteDeadline(_ time.Time) error {
 	return nil
 }
 
@@ -257,6 +257,7 @@ func TestStaticProcessing(t *testing.T) {
 	code, mess := testClient.(*TestClient).Last()
 	require.True(t, r == true)
 	require.True(t, code == TMessAuth && mess[0] == pid)
+	c.Salt = "JJPJZPFRFEGMOTAF"
 
 	//не правильное кол-во полей
 	r = processNotification(createMessage(TMessNotification, "test notify"), &testClient, c, "TEST1")
@@ -498,8 +499,8 @@ func testProfile(t *testing.T, testClient net.Conn, c *client.Client, email stri
 	require.True(t, testClient.(*TestClient).Check())
 	require.True(t, r == true)
 
-	bytes, error := json.Marshal(*c.Profile.Contacts)
-	require.True(t, error == nil)
+	bytes, err := json.Marshal(*c.Profile.Contacts)
+	require.True(t, err == nil)
 	testContactsString1 := `{"Id":16,"Caption":"cont5","Type":"cont","Pid":"555:555:555:555","Digest":"digest5","Salt":"JJPJZPFRFEGMOTAF","Inner":null,"Next":{"Id":15,"Caption":"group4","Type":"fold","Pid":"","Digest":"","Salt":"","Inner":null,"Next":{"Id":6,"Caption":"group2","Type":"fold","Pid":"","Digest":"","Salt":"","Inner":{"Id":7,"Caption":"group3","Type":"fold","Pid":"","Digest":"","Salt":"","Inner":{"Id":12,"Caption":"cont4","Type":"cont","Pid":"444:444:444:444","Digest":"digest4","Salt":"JJPJZPFRFEGMOTAF","Inner":null,"Next":{"Id":9,"Caption":"cont3","Type":"cont","Pid":"333:333:333:333","Digest":"digest3","Salt":"JJPJZPFRFEGMOTAF","Inner":null,"Next":null}},"Next":null},"Next":{"Id":1,"Caption":"group1","Type":"fold","Pid":"","Digest":"","Salt":"","Inner":{"Id":4,"Caption":"cont2","Type":"cont","Pid":"222:222:222:222","Digest":"digest2","Salt":"JJPJZPFRFEGMOTAF","Inner":null,"Next":{"Id":2,"Caption":"cont1","Type":"cont","Pid":"111:111:111:111","Digest":"digest1","Salt":"JJPJZPFRFEGMOTAF","Inner":null,"Next":null}},"Next":null}}}}`
 	require.True(t, testContactsString1 == string(bytes))
 
@@ -509,8 +510,8 @@ func testProfile(t *testing.T, testClient net.Conn, c *client.Client, email stri
 	require.True(t, testClient.(*TestClient).Check())
 	require.True(t, r == true)
 
-	bytes, error = json.Marshal(*c.Profile.Contacts)
-	require.True(t, error == nil)
+	bytes, err = json.Marshal(*c.Profile.Contacts)
+	require.True(t, err == nil)
 	testContactsString2 := `{"Id":16,"Caption":"cont5","Type":"cont","Pid":"555:555:555:555","Digest":"digest5","Salt":"JJPJZPFRFEGMOTAF","Inner":null,"Next":{"Id":15,"Caption":"group4","Type":"fold","Pid":"","Digest":"","Salt":"","Inner":null,"Next":{"Id":6,"Caption":"group2","Type":"fold","Pid":"","Digest":"","Salt":"","Inner":{"Id":7,"Caption":"group3","Type":"fold","Pid":"","Digest":"","Salt":"","Inner":{"Id":9,"Caption":"cont3","Type":"cont","Pid":"333:333:333:333","Digest":"digest3","Salt":"JJPJZPFRFEGMOTAF","Inner":null,"Next":null},"Next":null},"Next":{"Id":1,"Caption":"group1","Type":"fold","Pid":"","Digest":"","Salt":"","Inner":{"Id":4,"Caption":"cont2","Type":"cont","Pid":"222:222:222:222","Digest":"digest2","Salt":"JJPJZPFRFEGMOTAF","Inner":null,"Next":{"Id":2,"Caption":"cont1","Type":"cont","Pid":"111:111:111:111","Digest":"digest1","Salt":"JJPJZPFRFEGMOTAF","Inner":null,"Next":null}},"Next":null}}}}`
 	require.True(t, testContactsString2 == string(bytes))
 
@@ -795,8 +796,8 @@ func creationWebClient() bool {
 		return false
 	}
 
-	client := http.Client{}
-	resp, err := client.Do(r)
+	c := http.Client{}
+	resp, err := c.Do(r)
 	if err != nil {
 		fmt.Println("WEB ERROR" + desc + ": " + err.Error())
 		return false

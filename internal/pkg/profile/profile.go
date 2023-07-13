@@ -1,9 +1,7 @@
 package profile
 
 import (
-	"encoding/json"
 	log "github.com/sirupsen/logrus"
-	"os"
 	"srvisit/internal/pkg/common"
 	"srvisit/internal/pkg/contact"
 	"sync"
@@ -80,61 +78,20 @@ func SaveProfiles() {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	list := GetProfileList()
-
-	b, err := json.MarshalIndent(list, "", "  ")
-	if err != nil {
-		log.Errorf("не удалось сохранить профили: %s", err.Error())
-		return
-	}
-
-	f, err := os.Create(common.ProfilesFilename + ".tmp")
-	if err != nil {
-		log.Errorf("не удалось сохранить профили: %s", err.Error())
-		return
-	}
-
-	n, err := f.Write(b)
-	if n == len(b) && err == nil {
-		err = f.Close()
-		if err != nil {
-			log.Errorf("ошибка при сохранении профилей: %s", err.Error())
-		}
-
-		err = os.Remove(common.ProfilesFilename)
-		if err != nil {
-			//если это первое сохранение, то файла может ещё и не быть который мы хотим удалить
-			//log.Errorf("ошибка при сохранении профилей: %s", err.Error())
-		}
-
-		err = os.Rename(common.ProfilesFilename+".tmp", common.ProfilesFilename)
-		if err != nil {
-			log.Errorf("ошибка при сохранении профилей: %s", err.Error())
-		}
-	} else {
-		log.Errorf("не удалось сохранить профили: %s", err.Error())
-
-		err = f.Close()
-		if err != nil {
-			log.Errorf("ошибка при сохранении профилей: %s", err.Error())
-		}
+	if err := common.SaveFile(common.ProfilesFilename, GetProfileList()); err != nil {
+		log.Errorf("saving profiles: %s", err.Error())
 	}
 }
 
 func LoadProfiles() {
+	mutex.Lock()
+	defer mutex.Unlock()
+
 	var list []Profile
 	profiles = sync.Map{}
 
-	b, err := os.ReadFile(common.ProfilesFilename)
-	if err != nil {
-		log.Errorf("не получилось загрузить профили: %s", err.Error())
-		return
-	}
-
-	err = json.Unmarshal(b, &list)
-	if err != nil {
-		log.Errorf("не получилось загрузить профили: %s", err.Error())
-		return
+	if err := common.LoadFile(common.ProfilesFilename, &list); err != nil {
+		log.Errorf("loading profiles: %s", err.Error())
 	}
 
 	for i := 0; i < len(list); i++ {

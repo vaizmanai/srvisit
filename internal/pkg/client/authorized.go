@@ -8,13 +8,9 @@ import (
 var (
 	//держим список авторизованных клиентов в определенный профиль
 	//authorized[email] = map[Client.Pid]*Client
-	authorized      map[string]map[string]*Client
+	authorized      = map[string]map[string]*Client{}
 	authorizedMutex sync.RWMutex
 )
-
-func init() {
-	authorized = make(map[string]map[string]*Client)
-}
 
 func AddAuthorizedClient(email string, client *Client) {
 	authorizedMutex.Lock()

@@ -301,12 +301,12 @@ func processContact(message Message, conn *net.Conn, curClient *client.Client, i
 			if len(message.Messages[5]) > 0 { //поменяем родителя
 				p.Contacts = contact.DelContact(p.Contacts, i) //удаляем ссылки на контакт
 
-				ip, err := strconv.Atoi(message.Messages[5]) //IndexParent ищем нового родителя
+				parentId, err := strconv.Atoi(message.Messages[5]) //IndexParent ищем нового родителя
 				if err == nil {
-					c := contact.GetContact(p.Contacts, ip)
-					if c != nil {
-						c.Next = c.Inner
-						c.Inner = c
+					parentContact := contact.GetContact(p.Contacts, parentId)
+					if parentContact != nil {
+						c.Next = parentContact.Inner
+						parentContact.Inner = c
 					} else {
 						c.Next = p.Contacts
 						p.Contacts = c

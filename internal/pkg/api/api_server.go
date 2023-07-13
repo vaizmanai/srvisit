@@ -11,7 +11,7 @@ import (
 	"srvisit/internal/pkg/profile"
 )
 
-// Getting full online clients list
+// HandleGetClientsList getting full online clients list
 func HandleGetClientsList(w http.ResponseWriter, r *http.Request) {
 	b, err := json.Marshal(client.GetAllClientsList())
 	if err != nil {
@@ -23,7 +23,7 @@ func HandleGetClientsList(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write(b)
 }
 
-// Getting full profiles list
+// HandleGetProfileList getting full profiles list
 func HandleGetProfileList(w http.ResponseWriter, r *http.Request) {
 	b, err := json.Marshal(profile.GetProfileList())
 	if err != nil {
@@ -35,7 +35,7 @@ func HandleGetProfileList(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write(b)
 }
 
-// Getting content of log file
+// HandleGetLog getting content of log file
 func HandleGetLog(w http.ResponseWriter, r *http.Request) {
 	log.Infof("WEB Запрос log")
 	file, err := os.Open(common.LogName)
@@ -54,7 +54,7 @@ func HandleGetLog(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write(b)
 }
 
-// Clear log file
+// HandleDelLog clear log file
 func HandleDelLog(w http.ResponseWriter, r *http.Request) {
 	log.Infof("WEB Запрос очистки log")
 	common.CloseLogFile()

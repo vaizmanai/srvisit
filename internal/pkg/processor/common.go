@@ -4,9 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	log "github.com/sirupsen/logrus"
-	"io"
 	"net"
-	"os"
 	"runtime/debug"
 	"srvisit/internal/pkg/client"
 	"srvisit/internal/pkg/common"
@@ -17,7 +15,6 @@ import (
 )
 
 const (
-	//виды сообщений
 	TMessDeauth         = 0  //деаутентификация()
 	TMessVersion        = 1  //запрос версии
 	TMessAuth           = 2  //аутентификация(генерация pid)
@@ -52,7 +49,7 @@ const (
 )
 
 var (
-	//функции для обработки сообщений
+	//Processing функции для обработки сообщений
 	Processing = []processingMessage{
 		{TMessDeauth, nil},
 		{TMessVersion, processVersion},
@@ -96,7 +93,7 @@ var (
 	//сокет до мастера
 	master *net.Conn
 
-	//текстовая расшифровка статических сообщений
+	//messStaticText текстовая расшифровка статических сообщений
 	messStaticText = []string{
 		"пустое сообщение",
 		"ошибка сети",
@@ -116,7 +113,7 @@ var (
 	coordinates [2]float64
 )
 
-// информация о ноде
+// Node информация о ноде
 type Node struct {
 	Id          string
 	Name        string
@@ -125,15 +122,15 @@ type Node struct {
 	coordinates [2]float64
 }
 
-// тип для сообщения
+// Message структура для сообщения
 type Message struct {
 	TMessage int
 	Messages []string
 }
 
-// double pointer
+// dConn double pointer
 type dConn struct {
-	client  *client.Client //кто запросил трансляцию
+	client  *client.Client //кому транслируем
 	server  *client.Client //кто транслирует
 	pointer [2]*net.Conn
 	flag    [2]bool
@@ -142,13 +139,13 @@ type dConn struct {
 	mutex   sync.Mutex
 }
 
-// обработчик для запросов агенту
+// processingAgent обработчик для запросов агенту
 type processingAgent struct {
 	TMessage   int
 	Processing func(message Message, conn *net.Conn, curNode *Node, id string)
 }
 
-// обработчик для сообщений
+// processingMessage обработчик для сообщений
 type processingMessage struct {
 	TMessage   int
 	Processing func(message Message, conn *net.Conn, curClient *client.Client, id string) bool
@@ -201,9 +198,9 @@ func sendMessage(conn *net.Conn, TMessage int, Messages ...string) bool {
 }
 
 func sendMessageToAllClients(TMessage int, Messages ...string) {
-	for _, client := range client.GetAllClientsList() {
-		if client != nil {
-			sendMessage((*client).Conn, TMessage, Messages...)
+	for _, c := range client.GetAllClientsList() {
+		if c != nil {
+			sendMessage((*c).Conn, TMessage, Messages...)
 		}
 	}
 }
@@ -222,7 +219,7 @@ func HelperThread() {
 	log.Infof("helperThread закончил работу")
 }
 
-// пробежимся по профилям и найдем, где есть контакты с нашим пид и добавим этот профиль нам
+// addClientToProfile пробежимся по профилям и найдем, где есть контакты с нашим пид и добавим этот профиль нам
 func addClientToProfile(c *client.Client) {
 	for _, p := range profile.GetProfileList() {
 		//если этот клиент есть в конкретном профиле
@@ -280,21 +277,8 @@ func UpdateMyIP() {
 }
 
 func LoadVNCList() {
-	f, err := os.Open(common.VNCFileList)
-	defer f.Close()
-	if err == nil {
-		b, err := io.ReadAll(f)
-		if err == nil {
-			err = json.Unmarshal(b, &arrayVnc)
-			if err == nil {
-				defaultVnc = 0
-			} else {
-				log.Errorf("не получилось загрузить список VNC: %s", err.Error())
-			}
-		} else {
-			log.Errorf("не получилось загрузить список VNC: %s", err.Error())
-		}
-	} else {
-		log.Errorf("не получилось загрузить список VNC: %s", err.Error())
+	if err := common.LoadFile(common.VNCFileList, &arrayVnc); err != nil {
+		log.Errorf("loading file: %s", err.Error())
 	}
+	defaultVnc = 0
 }

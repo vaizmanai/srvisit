@@ -11,11 +11,11 @@ import (
 var (
 	//карта подключенных клиентов
 	//clients[Pid] = []*Client
-	clients      map[string][]*Client
+	clients      = map[string][]*Client{}
 	clientsMutex sync.RWMutex
 )
 
-// тип для клиента
+// Client тип для клиента
 type Client struct {
 	Serial  string
 	Pid     string
@@ -30,10 +30,6 @@ type Client struct {
 
 	coordinates [2]float64
 	mutex       sync.RWMutex
-}
-
-func init() {
-	clients = make(map[string][]*Client, 0)
 }
 
 func (client *Client) StoreClient() {

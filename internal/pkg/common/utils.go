@@ -165,42 +165,17 @@ func SwiftCounter() {
 }
 
 func SaveCounters() {
-	b, err := json.MarshalIndent(&counterData, "", "  ")
-	if err == nil {
-		f, err := os.Create(CountersFilename)
-		if err == nil {
-			n, err := f.Write(b)
-			if n != len(b) || err != nil {
-				log.Errorf("не удалось сохранить счетчики: %v", err)
-			}
-			_ = f.Close()
-		} else {
-			log.Errorf("не удалось сохранить счетчики: %s", err.Error())
-		}
-	} else {
-		log.Errorf("не удалось сохранить счетчики: %s", err.Error())
+	if err := SaveFile(CountersFilename, &counterData); err != nil {
+		log.Errorf("saving counters: %s", err.Error())
 	}
 }
 
 func LoadCounters() {
-	counterData.currentPos = time.Now()
-
-	f, err := os.Open(CountersFilename)
-	defer f.Close()
-	if err == nil {
-		b, err := io.ReadAll(f)
-		if err == nil {
-			err = json.Unmarshal(b, &counterData)
-			if err != nil {
-				log.Errorf("не получилось загрузить счетчики: %s", err.Error())
-			}
-		} else {
-			log.Errorf("не получилось загрузить счетчики: %s", err.Error())
-		}
-	} else {
-		log.Errorf("не получилось загрузить счетчики: %s", err.Error())
+	if err := LoadFile(CountersFilename, &counterData); err != nil {
+		log.Errorf("loading counters: %s", err.Error())
 	}
 
+	counterData.currentPos = time.Now()
 	counterData.CounterClients[counterData.currentPos.Hour()] = 0
 }
 
@@ -481,4 +456,58 @@ func GetMyIpByExternalApi() string {
 	}
 
 	return string(b)
+}
+
+func SaveFile(name string, data interface{}) error {
+	b, err := json.MarshalIndent(data, "", "\t")
+	if err != nil {
+		return fmt.Errorf("marshal: %w", err)
+	}
+
+	_ = os.Remove(fmt.Sprintf("%s.tmp", name))
+	_ = os.Rename(name, fmt.Sprintf("%s.tmp", name))
+
+	f, err := os.Create(fmt.Sprintf("%s", name))
+	if err != nil {
+		return fmt.Errorf("saving: %w", err)
+	}
+
+	defer func() {
+		if err = f.Close(); err != nil {
+			log.Errorf("closing: %s", err.Error())
+		}
+	}()
+
+	n, err := f.Write(b)
+	if n == len(b) && err == nil {
+		return nil
+	} else if err != nil {
+		return fmt.Errorf("writing: %w", err)
+	} else {
+		return nil
+	}
+}
+
+func LoadFile(name string, data interface{}) error {
+	f, err := os.Open(name)
+	if err != nil {
+		return fmt.Errorf("opening: %w", err)
+	}
+
+	defer func() {
+		if err := f.Close(); err != nil {
+			log.Errorf("closing: %s", err.Error())
+		}
+	}()
+
+	b, err := io.ReadAll(f)
+	if err != nil {
+		return fmt.Errorf("read: %w", err)
+	}
+
+	if err = json.Unmarshal(b, data); err != nil {
+		return fmt.Errorf("unmarshal: %w", err)
+	}
+
+	return nil
 }
