@@ -15,17 +15,17 @@
 		<script type="text/javascript" src="/resource/main.js"></script>
 		
 		<script>
-			var menu = $menu;
-			var contacts = $contacts;
+			let menu = $menu;
+			let contacts = $contacts;
 			
 			function getContacts(contact, inner) {
-				var newE = document.createElement('ul');
+				let newE = document.createElement('ul');
 				newE.className = "Container";
-				
-				var first = true;
-				var p = contact;
+
+				let first = true;
+				let p = contact;
 				while (p != null) {
-					var newN = document.createElement('li');
+					let newN = document.createElement('li');
 					newN.className = "Node";
 					
 					if (first && !inner) {
@@ -37,7 +37,7 @@
 						newN.className = newN.className + " IsLast";
 					}
 					
-					if (p.Type == "fold") {
+					if (p.Type === "fold") {
 						newN.innerHTML = "<div class=\"Expand\"></div><div class=\"Content\">" + p.Caption + "</div>";
 						newN.className = newN.className + " ExpandClosed";
 					} else {
@@ -57,24 +57,23 @@
 			}
 			
 			function loadContacts() {
-				var d = document.getElementById("treeView");
+				let d = document.getElementById("treeView");
 				d.innerHTML = "";
 				d.insertBefore(getContacts(contacts, false), d.children[1]);
 			}
 			
 			function getContact(first, id) {
-				
-				var p = first;
+				let p = first;
 				
 				while (p != null) {
 									
-					if (p.Id == id) {
+					if (p.Id === id) {
 						return p
 					}
 					
 					if (p.Inner != null) {
 						z = getContacts(p.Inner, id);
-						if (z.Id == id) {
+						if (z.Id === id) {
 							return z
 						}
 					}
@@ -100,14 +99,14 @@
 			}
 			
 			function make(m, arg1){
-				var req = getXmlHttp()
-				//var statusElem = document.getElementById('status')
+				let req = getXmlHttp()
+				//let statusElem = document.getElementById('status')
 				req.onreadystatechange = function() {
 				
-					if (req.readyState == 4) {
-						if(req.status == 200) {
+					if (req.readyState === 4) {
+						if(req.status === 200) {
 							//statusElem.innerHTML = "успешно";						
-						}else if(req.status == 401){
+						}else if(req.status === 401){
 							document.location = '/';
 						}else{
 							alert('Не удалось выполнить!');
@@ -116,7 +115,7 @@
 					}
 				}
 				
-				if (m == 'connectcont'){
+				if (m === 'connectcont'){
 					req.open('GET', 'api?make=connectcont&id=' + arg1, true)
 				}
 				
@@ -126,23 +125,23 @@
 			
 			function tree_toggle(event) {
 					event = event || window.event
-					var clickedElem = event.target || event.srcElement
+					let clickedElem = event.target || event.srcElement
 
 					if (!hasClass(clickedElem, 'Expand')) {
 							return // клик не там
 					}
 
 					// Node, на который кликнули
-					var node = clickedElem.parentNode
+					let node = clickedElem.parentNode
 					if (hasClass(node, 'ExpandLeaf')) {
 							return // клик на листе
 					}
 
 					// определить новый класс для узла
-					var newClass = hasClass(node, 'ExpandOpen') ? 'ExpandClosed' : 'ExpandOpen'
+					let newClass = hasClass(node, 'ExpandOpen') ? 'ExpandClosed' : 'ExpandOpen'
 					// заменить текущий класс на newClass
 					// регексп находит отдельно стоящий open|close и меняет на newClass
-					var re =  /(^|\s)(ExpandOpen|ExpandClosed)(\s|$)/
+					let re =  /(^|\s)(ExpandOpen|ExpandClosed)(\s|$)/
 					node.className = node.className.replace(re, '$1'+newClass+'$3')
 			}
 
@@ -190,10 +189,10 @@
 				</tr>
 					
 		
-﻿				<tr> <td colspan="2"></td> </tr>
+					<tr> <td colspan="2"></td> </tr>
 
 				<tr>
-					<td colspan="2" class="amid copyright" id="menu"></td>
+					<td colspan="2" class="amid copyright"></td>
 				</tr>
 				
 			</table>

@@ -14,17 +14,17 @@
 		<script type="text/javascript" src="/resource/main.js"></script>
 		
 		<script>
-			var menu = $menu;
+			let menu = $menu;
 			
 			function make(m){
-				var req = getXmlHttp()
-				//var statusElem = document.getElementById('status')
+				let req = getXmlHttp()
+				//let statusElem = document.getElementById('status')
 				req.onreadystatechange = function() {
 				
-					if (req.readyState == 4) {
-						if(req.status == 200) {
+					if (req.readyState === 4) {
+						if(req.status === 200) {
 							//statusElem.innerHTML = "успешно";						
-						}else if(req.status == 401){
+						}else if(req.status === 401){
 							document.location = '/';
 						}else{
 							alert('Не удалось выполнить!');
@@ -33,7 +33,7 @@
 					}
 				}
 				
-				if (m == 'configvnc'){
+				if (m === 'configvnc'){
 					req.open('GET', 'api?make=configvnc', true)
 				}
 				
@@ -59,10 +59,10 @@
 					<td class="aleft"><input type="button" value="панель UI" onclick="alert('showui')"></td>
 				</tr>
 		
-﻿				<tr> <td colspan="2"></td> </tr>
+					<tr> <td colspan="2"></td> </tr>
 
 				<tr>
-					<td colspan="2" class="amid copyright" id="menu"></td>
+					<td colspan="2" class="amid copyright"></td>
 				</tr>
 				
 			</table>

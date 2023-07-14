@@ -67,7 +67,9 @@ var (
 	Options = options{
 		MainServerPort:                "65471",
 		DataServerPort:                "65475",
+		HttpServerEnabled:             true,
 		HttpServerPort:                "8090",
+		HttpsServerEnabled:            false,
 		HttpsServerPort:               "8091",
 		HttpsCertPath:                 "cert.pem",
 		HttpsKeyPath:                  "key.pem",
@@ -125,10 +127,12 @@ type options struct {
 	DataServerPort string
 
 	//реквизиты веб сервера
-	HttpServerPort  string
-	HttpsServerPort string
-	HttpsCertPath   string
-	HttpsKeyPath    string
+	HttpServerEnabled  bool
+	HttpServerPort     string
+	HttpsServerEnabled bool
+	HttpsServerPort    string
+	HttpsCertPath      string
+	HttpsKeyPath       string
 
 	//размер буфера для операций с сокетами
 	SizeBuff int

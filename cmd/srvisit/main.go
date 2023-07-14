@@ -37,8 +37,8 @@ func main() {
 		profile.LoadProfiles()
 
 		go processor.HelperThread() //используем для периодических действий(сохранения и т.п.)
-		go processor.HttpServer()   //обработка веб запросов
 		go processor.MainServer()   //обработка основных команд от клиентов и агентов
+		go processor.HttpServer()   //обработка веб запросов
 	}
 
 	processor.UpdateMyIP()

@@ -1,5 +1,5 @@
 ﻿	function getXmlHttp(){
-		var xmlhttp;
+		let xmlhttp;
 		try {
 			xmlhttp = new ActiveXObject("Msxml2.XMLHTTP");
 			} catch (e) {
@@ -16,8 +16,8 @@
 	}
 	
 	function loadMenu(){
-		for(i = menu.length - 1; i >= 0; i--){
-			var newA = document.createElement('a');
+		for(let i = menu.length - 1; i >= 0; i--){
+			let newA = document.createElement('a');
 			newA.setAttribute('href', menu[i].Link);
 			newA.innerHTML = menu[i].Capt;
 			

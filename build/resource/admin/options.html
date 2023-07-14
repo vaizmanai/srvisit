@@ -16,20 +16,20 @@
 		<link rel="stylesheet" href="/resource/dist/chartist.min.css">
 		
 		<script>
-			var menu = $menu;
+			let menu = $menu;
 			
 
-			var options;
+			let options;
 			
 			function make(m, arg1){
-				var req = getXmlHttp()
-				//var statusElem = document.getElementById('status')
+				let req = getXmlHttp()
+				//let statusElem = document.getElementById('status')
 				req.onreadystatechange = function() {
 				
-					if (req.readyState == 4) {
-						if(req.status == 200) {
+					if (req.readyState === 4) {
+						if(req.status === 200) {
 							//statusElem.innerHTML = "успешно";	
-							if (m == 'options_get') {
+							if (m === 'options_get') {
 								options = JSON.parse(req.responseText);
 
 								document.getElementById('serversmtp').value = options.ServerSMTP;
@@ -42,7 +42,7 @@
                                 document.getElementById('yandex').value = options.YandexApiKeyMap;
                                 document.getElementById('version').value = options.Version;
 							}
-						}else if(req.status == 401){
+						}else if(req.status === 401){
 							document.location = '/';
 						}else{
 							alert('Не удалось выполнить!');
@@ -51,10 +51,10 @@
 					}
 				}
 
-				if (m == 'reload') {
+				if (m === 'reload') {
 					req.open('GET', '/api?make=reload', true)
 				}
-				if (m == 'options_get') {
+				if (m === 'options_get') {
 					req.open('GET', '/api?make=options_get', true)
 				}
 				
