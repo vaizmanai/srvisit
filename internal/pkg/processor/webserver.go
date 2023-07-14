@@ -1,6 +1,7 @@
 package processor
 
 import (
+	"fmt"
 	"github.com/gorilla/mux"
 	log "github.com/sirupsen/logrus"
 	"net"
@@ -46,17 +47,21 @@ func HttpServer() {
 
 	//-----------------------
 
-	go func() {
-		if err := http.ListenAndServe(":"+common.Options.HttpServerPort, myRouter); err != nil {
-			log.Fatalf("webServer не смог занять порт: %s", err.Error())
-		}
-	}()
-
-	err := http.ListenAndServeTLS(":"+common.Options.HttpsServerPort, common.Options.HttpsCertPath, common.Options.HttpsKeyPath, myRouter)
-	if err != nil {
-		log.Fatalf("webServer не смог занять порт: %s", err.Error())
+	if common.Options.HttpServerEnabled {
+		go func() {
+			if err := http.ListenAndServe(fmt.Sprintf(":%s", common.Options.HttpServerPort), myRouter); err != nil {
+				log.Fatalf("webServer не смог занять порт: %s", err.Error())
+			}
+		}()
 	}
 
+	if common.Options.HttpsServerEnabled {
+		go func() {
+			if err := http.ListenAndServeTLS(fmt.Sprintf(":%s", common.Options.HttpsServerPort), common.Options.HttpsCertPath, common.Options.HttpsKeyPath, myRouter); err != nil {
+				log.Fatalf("webServer не смог занять порт: %s", err.Error())
+			}
+		}()
+	}
 }
 
 func checkAuth(f func(w http.ResponseWriter, r *http.Request, client *client.Client)) http.HandlerFunc {
