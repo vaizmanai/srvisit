@@ -1,9 +1,9 @@
 package client
 
 import (
+	"github.com/vaizmanai/srvisit/internal/pkg/common"
+	"github.com/vaizmanai/srvisit/internal/pkg/profile"
 	"net"
-	"srvisit/internal/pkg/common"
-	"srvisit/internal/pkg/profile"
 	"strconv"
 	"sync"
 )

@@ -1,0 +1,5 @@
+#!/bin/sh
+
+BIN_PATH="/opt/srvisit"
+
+7z a  ${BIN_PATH}/backup/backup-`date +'%Y-%m-%d'`.7z ${BIN_PATH}/*.json

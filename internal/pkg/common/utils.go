@@ -2,10 +2,11 @@ package common
 
 import (
 	"crypto/sha256"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"github.com/Shopify/gomail"
 	log "github.com/sirupsen/logrus"
-	mail "github.com/xhit/go-simple-mail/v2"
 	"io"
 	"math/rand"
 	"net"
@@ -289,41 +290,19 @@ func GetSHA256(str string) string {
 }
 
 func SendEmail(to, subject, body string) (bool, error) {
-	client := mail.NewSMTPClient()
+	p, _ := strconv.Atoi(Options.PortSMTP)
+	d := gomail.NewDialer(Options.ServerSMTP, p, Options.LoginSMTP, Options.PassSMTP)
+	d.TLSConfig = &tls.Config{InsecureSkipVerify: true}
 
-	client.Host = Options.ServerSMTP
-	client.Port, _ = strconv.Atoi(Options.PortSMTP)
-	client.Username = Options.LoginSMTP
-	client.Password = Options.PassSMTP
-	client.KeepAlive = false
-	client.Helo = fmt.Sprintf("%s %s", WhitelabelName, WhitelabelVersion)
-
-	smtpClient, err := client.Connect()
-	if err != nil {
-		return false, fmt.Errorf("connecting: %w", err)
+	m := gomail.NewMessage()
+	m.SetHeader("From", Options.LoginSMTP)
+	m.SetHeader("To", to)
+	m.SetHeader("Subject", subject)
+	m.SetBody("text/html; charset=utf-8", body)
+	if err := d.DialAndSend(m); err != nil {
+		return false, err
 	}
 
-	if err = smtpClient.Noop(); err != nil {
-		return false, fmt.Errorf("noop: %w", err)
-	}
-
-	email := mail.NewMSG()
-	email.SetFrom(Options.LoginSMTP).
-		AddTo(to).
-		SetSubject(subject)
-	email.SetBody(mail.TextHTML, body)
-
-	if email.Error != nil {
-		return false, fmt.Errorf("generating: %w", err)
-	}
-
-	if err = email.Send(smtpClient); err != nil {
-		return false, fmt.Errorf("sending: %w", err)
-	}
-
-	if err = email.GetError(); err != nil {
-		return false, fmt.Errorf("error: %w", err)
-	}
 	return true, nil
 }
 

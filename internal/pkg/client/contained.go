@@ -1,8 +1,8 @@
 package client
 
 import (
-	"srvisit/internal/pkg/common"
-	"srvisit/internal/pkg/profile"
+	"github.com/vaizmanai/srvisit/internal/pkg/common"
+	"github.com/vaizmanai/srvisit/internal/pkg/profile"
 	"sync"
 )
 

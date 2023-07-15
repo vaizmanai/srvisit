@@ -6,10 +6,10 @@ import (
 	"encoding/json"
 	"fmt"
 	log "github.com/sirupsen/logrus"
+	"github.com/vaizmanai/srvisit/internal/pkg/client"
+	"github.com/vaizmanai/srvisit/internal/pkg/common"
 	"net"
 	"runtime/debug"
-	"srvisit/internal/pkg/client"
-	"srvisit/internal/pkg/common"
 	"time"
 )
 

@@ -30,13 +30,25 @@ make linux
 Install linux regular version:
 
 ```
-make linux_install
+sudo make linux_install
 ```
 
 Install linux master + data versions:
 
 ```
-make linux_install_master
+sudo make linux_install_master
+```
+
+Uninstall linux versions:
+
+```
+sudo make linux_uninstall
+```
+
+Update installed linux versions(**after that you have to start service again**):
+
+```
+sudo make linux_update
 ```
 
 ***

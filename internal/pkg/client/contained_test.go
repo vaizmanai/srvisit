@@ -2,8 +2,8 @@ package client
 
 import (
 	"github.com/stretchr/testify/require"
-	"srvisit/internal/pkg/common"
-	"srvisit/internal/pkg/profile"
+	"github.com/vaizmanai/srvisit/internal/pkg/common"
+	"github.com/vaizmanai/srvisit/internal/pkg/profile"
 	"testing"
 )
 

@@ -4,9 +4,9 @@ import (
 	"fmt"
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
+	"github.com/vaizmanai/srvisit/internal/pkg/client"
+	"github.com/vaizmanai/srvisit/internal/pkg/profile"
 	"net/http"
-	"srvisit/internal/pkg/client"
-	"srvisit/internal/pkg/profile"
 	"strings"
 	"testing"
 )

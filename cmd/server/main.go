@@ -2,12 +2,12 @@ package main
 
 import (
 	log "github.com/sirupsen/logrus"
+	"github.com/vaizmanai/srvisit/internal/pkg/common"
+	"github.com/vaizmanai/srvisit/internal/pkg/processor"
+	"github.com/vaizmanai/srvisit/internal/pkg/profile"
 	"math/rand"
 	"os"
 	"os/signal"
-	"srvisit/internal/pkg/common"
-	"srvisit/internal/pkg/processor"
-	"srvisit/internal/pkg/profile"
 	"strings"
 	"syscall"
 	"time"

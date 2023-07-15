@@ -2,8 +2,8 @@ package profile
 
 import (
 	log "github.com/sirupsen/logrus"
-	"srvisit/internal/pkg/common"
-	"srvisit/internal/pkg/contact"
+	"github.com/vaizmanai/srvisit/internal/pkg/common"
+	"github.com/vaizmanai/srvisit/internal/pkg/contact"
 	"sync"
 )
 
