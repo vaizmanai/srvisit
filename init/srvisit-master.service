@@ -1,0 +1,15 @@
+[Unit]
+Description=ReVisit Server Master
+After=network.target auditd.service
+
+[Service]
+WorkingDirectory=/opt/srvisit
+ExecStart=/opt/srvisit/server -master
+KillMode=process
+Restart=always
+RestartSec=5
+RestartPreventExitStatus=255
+Type=simple
+
+[Install]
+WantedBy=multi-user.target

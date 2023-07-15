@@ -1,14 +1,11 @@
 
 .idea
-profiles.list
-options.cfg
-resource/vnc/*
-log.txt
-counters.json
+*.list
+*.txt
+*.json
+*.cfg
 *.exe
-node_log.txt
-srvisit
-cert.pem
-key.pem
+*.pem
 *.out
-coverage.txt
+*.tmp
+build/server

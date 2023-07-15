@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+    <meta http-equiv="cache-control" content="max-age=0"/>
+    <meta http-equiv="cache-control" content="no-cache"/>
+    <meta http-equiv="expires" content="0"/>
+    <meta http-equiv="expires" content="Tue, 01 Jan 1980 1:00:00 GMT"/>
+    <meta http-equiv="pragma" content="no-cache"/>
+    <title>Менеджер удаленного доступа reVisit</title>
+    <link rel="icon" href="/resource/icon.png" type="image/png">
+    <link rel="shortcut icon" href="/resource/icon.png" type="image/png">
+    <link rel="stylesheet" href="/resource/style.css">
+    <script type="text/javascript" src="/resource/main.js"></script>
+
+    <link rel="stylesheet" href="/resource/dist/chartist.min.css">
+
+    <script src="https://api-maps.yandex.ru/2.1/?apikey=38c4e206-41a3-41c0-918a-8763db0d9843&lang=en_US"
+            type="text/javascript"></script>
+    <style>
+        #map {
+            width: 100%;
+            height: 450px;
+            margin: auto;
+        }
+
+        .map {
+            border: solid 1px #bcbcbc;
+            margin-top: 25px;
+        }
+    </style>
+    <script>
+        let menu = $menu;
+        let clients = $clients;
+        let connections = $connections;
+        let agents = $agents;
+
+        let myMap;
+
+        function getCoord(obj) {
+            let client = new ymaps.Placemark([obj.Latitude, obj.Longitude], getClientData(obj), getClientOptions());
+            clusterer.add(client);
+        }
+
+        function getAgent(obj) {
+            let agent = new ymaps.Placemark([obj.Latitude, obj.Longitude], getAgentData(obj), getAgentOptions());
+            agent.options.set('zIndex', 680);
+            myMap.geoObjects.add(agent);
+        }
+
+        function getConn(obj) {
+            let line = new ymaps.GeoObject({
+                geometry: {
+                    type: "LineString",
+                    coordinates: [
+                        [obj.Client1.Latitude, obj.Client1.Longitude],
+                        [obj.Node.Latitude, obj.Node.Longitude],
+                        [obj.Client2.Latitude, obj.Client2.Longitude]
+                    ]
+                }
+            });
+
+            let c1 = new ymaps.Placemark([obj.Client1.Latitude, obj.Client1.Longitude], getClientData(obj), getConnOptions());
+            c1.options.set('zIndex', 670);
+            let c2 = new ymaps.Placemark([obj.Client2.Latitude, obj.Client2.Longitude], getClientData(obj), getConnOptions());
+            c2.options.set('zIndex', 670);
+            myMap.geoObjects.add(c1);
+            myMap.geoObjects.add(c2);
+            myMap.geoObjects.add(line);
+        }
+
+        function init() {
+            myMap = new ymaps.Map("map", {
+                    center: [55.76, 37.64],
+                    zoom: 4,
+                    controls: ['zoomControl', 'fullscreenControl']
+                },
+                clusterer = new ymaps.Clusterer({
+                    /**
+                     * Через кластеризатор можно указать только стили кластеров,
+                     * стили для меток нужно назначать каждой метке отдельно.
+                     * @see https://api.yandex.ru/maps/doc/jsapi/2.1/ref/reference/option.presetStorage.xml
+                     */
+                    preset: 'islands#invertedBlueClusterIcons',
+                    /**
+                     * Ставим true, если хотим кластеризовать только точки с одинаковыми координатами.
+                     */
+                    groupByCoordinates: false,
+                    /**
+                     * Опции кластеров указываем в кластеризаторе с префиксом "cluster".
+                     * @see https://api.yandex.ru/maps/doc/jsapi/2.1/ref/reference/ClusterPlacemark.xml
+                     */
+                    clusterDisableClickZoom: true,
+                    clusterHideIconOnBalloonOpen: false,
+                    geoObjectHideIconOnBalloonOpen: false
+                }),
+                /**
+                 * Функция возвращает объект, содержащий опции метки.
+                 * Все опции, которые поддерживают геообъекты, можно посмотреть в документации.
+                 * @see https://api.yandex.ru/maps/doc/jsapi/2.1/ref/reference/GeoObject.xml
+                 */
+                getClientOptions = function () {
+                    return {
+                        preset: 'islands#blueCircleDotIcon',
+                    };
+                },
+                getAgentOptions = function () {
+                    return {
+                        preset: 'islands#redCircleDotIcon',
+                    };
+                },
+                getConnOptions = function () {
+                    return {
+                        preset: 'islands#greenCircleDotIcon',
+                    };
+                },
+                /**
+                 * Функция возвращает объект, содержащий данные метки.
+                 * Поле данных clusterCaption будет отображено в списке геообъектов в балуне кластера.
+                 * Поле balloonContentBody - источник данных для контента балуна.
+                 * Оба поля поддерживают HTML-разметку.
+                 * Список полей данных, которые используют стандартные макеты содержимого иконки метки
+                 * и балуна геообъектов, можно посмотреть в документации.
+                 * @see https://api.yandex.ru/maps/doc/jsapi/2.1/ref/reference/GeoObject.xml
+                 */
+                getClientData = function (obj) {
+                    return {
+                        balloonContentHeader: obj.Pid,
+                        balloonContentBody: obj.Note,
+                        balloonContentFooter: obj.Ip,
+                        clusterCaption: obj.Pid
+                    };
+                },
+                getAgentData = function (obj) {
+                    return {
+                        balloonContentHeader: "",
+                        balloonContentBody: obj.Note,
+                        balloonContentFooter: "",
+                        clusterCaption: obj.Ip
+                    };
+                }
+            );
+
+            if (agents != null) {
+                for (i = 0; i < agents.length; i++) {
+                    getAgent(agents[i]);
+                }
+            }
+
+            if (connections != null) {
+                for (i = 0; i < connections.length; i++) {
+                    getConn(connections[i]);
+                }
+            }
+
+            if (clients != null) {
+                for (i = 0; i < clients.length; i++) {
+                    getCoord(clients[i], i);
+                }
+                myMap.geoObjects.add(clusterer);
+            }
+        }
+
+        function onLoad() {
+            ymaps.ready(init);
+        }
+    </script>
+
+</head>
+<body onload='loadMenu(); copyright(); onLoad();'>
+
+<script src="/resource/dist/chartist.min.js"></script>
+
+<div class="content">
+
+    <table>
+        <tr>
+            <td colspan="2" class="amid header" id="menu">
+
+            </td>
+        </tr>
+        <tr>
+            <td colspan="2"></td>
+        </tr>
+        <tr>
+            <td colspan="2" class="amid map">
+                <div id="map"></div>
+            </td>
+        </tr>
+        <tr>
+            <td colspan="2"></td>
+        </tr>
+
+        <tr>
+            <td colspan="2" class="amid">
+                Трафик по часам суток
+                <div class="ct-chart ct-perfect-fourth" id="chart1"></div>
+                Кол-во соединений по часам суток
+                <div class="ct-chart ct-perfect-fourth" id="chart2"></div>
+                Онлайн абонентов по часам суток
+                <div class="ct-chart ct-perfect-fourth" id="chart11"></div>
+                <br>
+
+                Трафик по дням недели
+                <div class="ct-chart ct-perfect-fourth" id="chart3"></div>
+                Кол-во соединений по дням недели
+                <div class="ct-chart ct-perfect-fourth" id="chart4"></div>
+                Онлайн абонентов по дням недели
+                <div class="ct-chart ct-perfect-fourth" id="chart12"></div>
+                <br>
+
+                Трафик по дням месяца
+                <div class="ct-chart ct-perfect-fourth" id="chart5"></div>
+                Кол-во соединений по дням месяца
+                <div class="ct-chart ct-perfect-fourth" id="chart6"></div>
+                Онлайн абонентов по дням месяца
+                <div class="ct-chart ct-perfect-fourth" id="chart13"></div>
+                <br>
+
+                Трафик по дням года
+                <div class="ct-chart ct-perfect-fourth" id="chart7"></div>
+                Кол-во соединений по дням года
+                <div class="ct-chart ct-perfect-fourth" id="chart8"></div>
+                Онлайн абонентов по дням года
+                <div class="ct-chart ct-perfect-fourth" id="chart14"></div>
+                <br>
+
+                Трафик по месяцам
+                <div class="ct-chart ct-perfect-fourth" id="chart9"></div>
+                Кол-во соединений по месяцам
+                <div class="ct-chart ct-perfect-fourth" id="chart10"></div>
+                Онлайн абонентов по месяцам
+                <div class="ct-chart ct-perfect-fourth" id="chart15"></div>
+            </td>
+        </tr>
+
+        <tr>
+            <td colspan="2"></td>
+        </tr>
+
+        <tr>
+            <td colspan="2" class="amid copyright"></td>
+        </tr>
+
+    </table>
+
+</div>
+
+<style>
+    .ct-series-a .ct-line {
+        stroke: blue;
+        stroke-dasharray: 5px 5px;
+        stroke-width: 1;
+        animation: 1s animateBorder linear infinite;
+    }
+
+    @keyframes animateBorder {
+        to {
+            stroke-dashoffset: 10px;
+        }
+    }
+</style>
+
+<script>
+
+    //по часам
+    let data1 = {
+        labels: $headers01,
+        series: [$values01]
+    };
+
+    let data2 = {
+        labels: $headers01,
+        series: [$values02]
+    };
+
+    let clients1 = {
+        labels: $headers01,
+        series: [$values21]
+    };
+
+    //по дням недели
+    let data3 = {
+        labels: $headers02,
+        series: [$values03]
+    };
+
+    let data4 = {
+        labels: $headers02,
+        series: [$values04]
+    };
+
+    let clients2 = {
+        labels: $headers02,
+        series: [$values22]
+    };
+
+    //по дням месяца
+    let data5 = {
+        labels: $headers03,
+        series: [$values05]
+    };
+
+    let data6 = {
+        labels: $headers03,
+        series: [$values06]
+    };
+
+    let clients3 = {
+        labels: $headers03,
+        series: [$values23]
+    };
+
+    //по дням года
+    let data7 = {
+        labels: $headers04,
+        series: [$values07]
+    };
+
+    let data8 = {
+        labels: $headers04,
+        series: [$values08]
+    };
+
+    let clients4 = {
+        labels: $headers04,
+        series: [$values24]
+    };
+
+    //по месяцам
+    let data9 = {
+        labels: $headers05,
+        series: [$values09]
+    };
+
+    let data10 = {
+        labels: $headers05,
+        series: [$values10]
+    };
+
+    let clients5 = {
+        labels: $headers05,
+        series: [$values25]
+    };
+
+    let options1 = {
+        height: '200px',
+        showPoint: false,
+        fullWidth: true,
+        lineSmooth: true,
+        axisX: {
+            showGrid: true,
+            showLabel: true
+        },
+        axisY: {
+            offset: 70,
+            onlyInteger: true,
+            labelInterpolationFnc: function (value) {
+                return value + 'Mb';
+            }
+        }
+    };
+
+    let options2 = {
+        height: '200px',
+        showPoint: false,
+        fullWidth: true,
+        lineSmooth: true,
+        axisX: {
+            showGrid: true,
+            showLabel: true
+        },
+        axisY: {
+            onlyInteger: true,
+            offset: 70
+        }
+    };
+
+    let options3 = {
+        height: '200px',
+        showPoint: false,
+        fullWidth: true,
+        lineSmooth: true,
+        axisX: {
+            showGrid: false,
+            showLabel: false
+        },
+        axisY: {
+            offset: 70,
+            onlyInteger: true,
+            labelInterpolationFnc: function (value) {
+                return value + 'Mb';
+            }
+        }
+    };
+
+    let options4 = {
+        height: '200px',
+        showPoint: false,
+        fullWidth: true,
+        lineSmooth: true,
+        axisX: {
+            showGrid: false,
+            showLabel: false
+        },
+        axisY: {
+            onlyInteger: true,
+            offset: 70
+        }
+    };
+
+    new Chartist.Line('#chart1', data1, options1);
+    new Chartist.Line('#chart2', data2, options2);
+    new Chartist.Line('#chart11', clients1, options2);
+
+    new Chartist.Line('#chart3', data3, options1);
+    new Chartist.Line('#chart4', data4, options2);
+    new Chartist.Line('#chart12', clients2, options2);
+
+    new Chartist.Line('#chart5', data5, options1);
+    new Chartist.Line('#chart6', data6, options2);
+    new Chartist.Line('#chart13', clients3, options2);
+
+    new Chartist.Line('#chart7', data7, options3);
+    new Chartist.Line('#chart8', data8, options4);
+    new Chartist.Line('#chart14', clients4, options4);
+
+    new Chartist.Line('#chart9', data9, options1);
+    new Chartist.Line('#chart10', data10, options2);
+    new Chartist.Line('#chart15', clients5, options2);
+
+</script>
+
+</body>
+</html>
