@@ -3,12 +3,12 @@ package api
 import (
 	"encoding/json"
 	log "github.com/sirupsen/logrus"
+	"github.com/vaizmanai/srvisit/internal/pkg/client"
+	"github.com/vaizmanai/srvisit/internal/pkg/common"
+	"github.com/vaizmanai/srvisit/internal/pkg/profile"
 	"io"
 	"net/http"
 	"os"
-	"srvisit/internal/pkg/client"
-	"srvisit/internal/pkg/common"
-	"srvisit/internal/pkg/profile"
 )
 
 // HandleGetClientsList getting full online clients list

@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"github.com/gorilla/mux"
 	log "github.com/sirupsen/logrus"
+	"github.com/vaizmanai/srvisit/internal/pkg/api"
+	"github.com/vaizmanai/srvisit/internal/pkg/client"
+	"github.com/vaizmanai/srvisit/internal/pkg/common"
 	"net"
 	"net/http"
-	"srvisit/internal/pkg/api"
-	"srvisit/internal/pkg/client"
-	"srvisit/internal/pkg/common"
 	"time"
 )
 

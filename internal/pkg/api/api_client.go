@@ -3,8 +3,8 @@ package api
 import (
 	"encoding/json"
 	log "github.com/sirupsen/logrus"
+	"github.com/vaizmanai/srvisit/internal/pkg/client"
 	"net/http"
-	"srvisit/internal/pkg/client"
 )
 
 // HandleGetClient getting authorized client info

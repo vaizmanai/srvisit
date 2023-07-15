@@ -4,7 +4,7 @@ After=network.target auditd.service
 
 [Service]
 WorkingDirectory=/opt/srvisit
-ExecStart=/opt/srvisit/srvisit -master
+ExecStart=/opt/srvisit/server -master
 KillMode=process
 Restart=always
 RestartSec=5

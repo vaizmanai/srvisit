@@ -1,4 +1,4 @@
-module srvisit
+module github.com/vaizmanai/srvisit
 
 go 1.19
 
