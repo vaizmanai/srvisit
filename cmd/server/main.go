@@ -17,6 +17,10 @@ func main() {
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt, syscall.SIGTERM)
 
+	rand.Seed(time.Now().UTC().UnixNano())
+
+	common.LoadOptions()
+
 	for _, x := range os.Args {
 		if strings.Contains(x, "node") {
 			common.Options.Mode = common.ModeNode
@@ -26,10 +30,6 @@ func main() {
 	}
 
 	log.Infof("запускается сервер reVisit версии %s", common.WhitelabelVersion)
-
-	rand.Seed(time.Now().UTC().UnixNano())
-
-	common.LoadOptions()
 
 	if common.Options.Mode != common.ModeNode {
 		processor.LoadVNCList()

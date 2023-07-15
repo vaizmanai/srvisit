@@ -45,7 +45,7 @@ Uninstall linux versions:
 sudo make linux_uninstall
 ```
 
-Update installed linux versions(**after that you have to start service again**):
+Update installed linux versions:
 
 ```
 sudo make linux_update
