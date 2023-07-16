@@ -253,9 +253,13 @@ func GetCoordinatesByYandex(addr string) [2]float64 {
 	}
 
 	var respYandex YandexResp
-	err = json.Unmarshal(b, &respYandex)
-	if err != nil {
+	if err = json.Unmarshal(b, &respYandex); err != nil {
 		//todo надо мой айпи адрес как-то указать
+		return [2]float64{0, 0}
+	}
+
+	if len(respYandex.Error.Message) > 0 {
+		log.Warnf("yandex geo: %s", respYandex.Error.Message)
 		return [2]float64{0, 0}
 	}
 

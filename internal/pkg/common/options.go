@@ -199,6 +199,9 @@ type VNC struct {
 
 type YandexResp struct {
 	Position YandexBody `json:"position"`
+	Error    struct {
+		Message string `json:"message"`
+	} `json:"error"`
 }
 
 type YandexBody struct {
