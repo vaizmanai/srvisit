@@ -29,7 +29,7 @@ func main() {
 		}
 	}
 
-	log.Infof("запускается сервер reVisit версии %s", common.WhitelabelVersion)
+	log.Infof("запускается сервер %s версии %s", common.WhitelabelName, common.WhitelabelVersion)
 
 	if common.Options.Mode != common.ModeNode {
 		processor.LoadVNCList()
