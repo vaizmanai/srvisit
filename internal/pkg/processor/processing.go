@@ -9,6 +9,7 @@ import (
 	"github.com/vaizmanai/srvisit/internal/pkg/contact"
 	"github.com/vaizmanai/srvisit/internal/pkg/profile"
 	"net"
+	"net/mail"
 	"net/url"
 	"strconv"
 	"strings"
@@ -23,14 +24,14 @@ func processVersion(message Message, conn *net.Conn, curClient *client.Client, i
 		return false
 	}
 
-	curClient.Version = message.Messages[0]
+	curClient.SetVersion(message.Messages[0])
 	return true
 }
 
 func processAuth(message Message, conn *net.Conn, curClient *client.Client, id string) bool {
 	log.Infof("%s пришла авторизация", id)
 
-	if len(message.Messages) != 1 {
+	if len(message.Messages) != 1 || curClient.Snapshot().Pid != "" {
 		log.Errorf("%s не правильное кол-во полей", id)
 		return false
 	}
@@ -48,11 +49,7 @@ func processAuth(message Message, conn *net.Conn, curClient *client.Client, id s
 	token := common.RandomString(common.LengthToken)
 
 	if sendMessage(conn, TMessAuth, s, salt, token) {
-		curClient.Conn = conn
-		curClient.Pid = s
-		curClient.Serial = message.Messages[0]
-		curClient.Salt = salt
-		curClient.Token = token
+		curClient.SetIdentity(message.Messages[0], s, salt, token, conn)
 		curClient.StoreClient()
 		curClient.SetCoordinates([2]float64{0, 0})
 
@@ -61,14 +58,14 @@ func processAuth(message Message, conn *net.Conn, curClient *client.Client, id s
 
 		//получим координаты по ip
 		go func() {
-			h, _, err := net.SplitHostPort((*curClient.Conn).RemoteAddr().String())
+			h, _, err := net.SplitHostPort((*conn).RemoteAddr().String())
 			if err == nil {
 				curClient.SetCoordinates(common.GetCoordinatesByYandex(h))
 			}
 		}()
+		return true
 	}
-
-	return true
+	return false
 }
 
 func processNotification(message Message, conn *net.Conn, curClient *client.Client, id string) bool {
@@ -82,7 +79,7 @@ func processNotification(message Message, conn *net.Conn, curClient *client.Clie
 	//todo надо бы как-то защититься от спама
 	list := client.GetClientsList(message.Messages[0])
 	for _, peer := range list {
-		sendMessage(peer.Conn, TMessNotification, message.Messages[1])
+		sendMessage(peer.Snapshot().Conn, TMessNotification, message.Messages[1])
 	}
 
 	return true
@@ -122,7 +119,7 @@ func processConnect(message Message, conn *net.Conn, curClient *client.Client, i
 		connectPeers(code, curClient, peer, address)
 
 		log.Infof("%s запрашиваем коммуникацию у %s для %s", id, (*peer.Conn).RemoteAddr(), code)
-		if !sendMessage(peer.Conn, TMessConnect, passDigest, salt, code, "simple", "server", curClient.Pid, address) { //тот кто передает трансляцию
+		if !sendMessage(peer.Snapshot().Conn, TMessConnect, passDigest, salt, code, "simple", "server", curClient.Pid, address) { //тот кто передает трансляцию
 			disconnectPeers(code)
 			log.Errorf("%s не смогли отправить запрос %s", id, code)
 			if curClient.GreaterVersionThan(common.MinimalVersionForStaticAlert) {
@@ -161,13 +158,13 @@ func processDisconnect(message Message, conn *net.Conn, curClient *client.Client
 
 	if len(message.Messages) > 1 {
 		i, err := strconv.Atoi(message.Messages[1])
-		if err == nil {
+		if err == nil && i >= 0 && i < len(messStaticText) {
 			log.Errorf("%s текст ошибки: %s", id, messStaticText[i])
 			value, exists := channels.Load(code)
 			if exists {
 				peers := value.(*dConn)
-				if peers.client.GreaterVersionThan(common.MinimalVersionForStaticAlert) {
-					sendMessage(peers.client.Conn, TMessStandardAlert, message.Messages[1])
+				if peers.client != nil && peers.client.GreaterVersionThan(common.MinimalVersionForStaticAlert) {
+					sendMessage(peers.client.Snapshot().Conn, TMessStandardAlert, message.Messages[1])
 				}
 			}
 		}
@@ -192,11 +189,13 @@ func processLogin(message Message, conn *net.Conn, curClient *client.Client, id 
 	email := strings.ToLower(message.Messages[0])
 	p := profile.GetProfile(email)
 	if p != nil {
-		if message.Messages[1] == common.GetSHA256(p.Pass+curClient.Salt) {
+		if message.Messages[1] == common.GetSHA256(p.Password()+curClient.Salt) {
 			log.Infof("%s авторизация профиля пройдена", id)
 
 			sendMessage(conn, TMessLogin)
-			curClient.Profile = p
+			if previous := curClient.SetProfile(p); previous != nil {
+				client.DelAuthorizedClient(previous.Email, curClient)
+			}
 			client.AddAuthorizedClient(p.Email, curClient)
 			processContacts(message, conn, curClient, id)
 			return true
@@ -222,12 +221,24 @@ func processReg(message Message, conn *net.Conn, curClient *client.Client, id st
 	}
 
 	//проверяем доступность учетки
-	p := profile.GetProfile(message.Messages[0])
-	if p == nil {
-		newProfile := profile.NewProfile(strings.ToLower(message.Messages[0]))
-
-		if len(common.Options.ServerSMTP) > 0 {
-			newProfile.Pass = common.RandomString(common.PasswordLength)
+	email := strings.ToLower(strings.TrimSpace(message.Messages[0]))
+	address, err := mail.ParseAddress(email)
+	if err != nil || address.Address != email {
+		return false
+	}
+	smtpEnabled := common.GetOptions().ServerSMTP != ""
+	if !smtpEnabled && profile.GetProfile(email) == nil {
+		if curClient.GreaterVersionThan(common.MinimalVersionForStaticAlert) {
+			sendMessage(conn, TMessStandardAlert, fmt.Sprint(common.StaticMessageRegMail))
+		} else {
+			sendMessage(conn, TMessNotification, "Регистрация недоступна: SMTP не настроен.")
+		}
+		return false
+	}
+	password := common.RandomString(common.PasswordLength)
+	newProfile := profile.NewProfileWithPassword(email, password)
+	if newProfile != nil {
+		if smtpEnabled {
 			if _, err := common.SendEmail(message.Messages[0], fmt.Sprintf("Information from %s", common.WhitelabelName), fmt.Sprintf("Your password is %s", newProfile.Pass)); err != nil {
 				profile.DelProfile(newProfile.Email)
 				log.Errorf("%s не удалось отправить письмо с паролем: %s", id, err.Error())
@@ -238,8 +249,6 @@ func processReg(message Message, conn *net.Conn, curClient *client.Client, id st
 				}
 				return false
 			}
-		} else {
-			newProfile.Pass = common.PredefinedPass
 		}
 
 		sendMessage(conn, TMessReg, "success")
@@ -278,7 +287,7 @@ func processContact(message Message, conn *net.Conn, curClient *client.Client, i
 	i, err := strconv.Atoi(message.Messages[0])
 	if err == nil {
 		p.Lock()
-		defer p.Unlock()
+		sendStatus := false
 
 		if i == -1 {
 			i = contact.GetNewId(p.Contacts)
@@ -299,6 +308,11 @@ func processContact(message Message, conn *net.Conn, curClient *client.Client, i
 			}
 
 			if len(message.Messages[5]) > 0 { //поменяем родителя
+				parentID, parseErr := strconv.Atoi(message.Messages[5])
+				if parseErr == nil && (parentID == i || contact.GetContact(c.Inner, parentID) != nil) {
+					p.Unlock()
+					return false
+				}
 				p.Contacts = contact.DelContact(p.Contacts, i) //удаляем ссылки на контакт
 
 				parentId, err := strconv.Atoi(message.Messages[5]) //IndexParent ищем нового родителя
@@ -334,13 +348,17 @@ func processContact(message Message, conn *net.Conn, curClient *client.Client, i
 			}
 
 			if len(c.Pid) > 0 {
-				processStatus(createMessage(TMessStatus, fmt.Sprint(i)), conn, curClient, id)
+				sendStatus = true
 			}
+		}
+		p.Unlock()
+		if sendStatus {
+			processStatus(createMessage(TMessStatus, fmt.Sprint(i)), conn, curClient, id)
 		}
 
 		//отправим всем авторизованным об изменениях
 		for _, authClient := range client.GetAuthorizedClientList(p.Email) {
-			sendMessage(authClient.Conn, message.TMessage, message.Messages...)
+			sendMessage(authClient.Snapshot().Conn, message.TMessage, message.Messages...)
 		}
 
 		log.Infof("%s операция с контактом выполнена", id)
@@ -359,7 +377,7 @@ func processContacts(message Message, conn *net.Conn, curClient *client.Client, 
 	}
 
 	//отправляем все контакты
-	b, err := json.Marshal(curClient.Profile.Contacts)
+	b, err := json.Marshal(curClient.Profile.Snapshot().Contacts)
 	if err != nil {
 		log.Errorf("%s не получилось отправить контакты: %s", id, err.Error())
 		return false
@@ -382,7 +400,7 @@ func processLogout(message Message, conn *net.Conn, curClient *client.Client, id
 	}
 
 	client.DelAuthorizedClient(curClient.Profile.Email, curClient)
-	curClient.Profile = nil
+	curClient.SetProfile(nil)
 	return true
 }
 
@@ -401,7 +419,7 @@ func processConnectContact(message Message, conn *net.Conn, curClient *client.Cl
 
 	i, err := strconv.Atoi(message.Messages[0])
 	if err == nil {
-		c := contact.GetContact(p.Contacts, i)
+		c := contact.GetContact(p.Snapshot().Contacts, i)
 		if c != nil {
 			if len(message.Messages) > 1 {
 				processConnect(createMessage(TMessConnect, c.Pid, c.Digest, c.Salt, message.Messages[1]), conn, curClient, id)
@@ -439,7 +457,7 @@ func processStatuses(message Message, conn *net.Conn, curClient *client.Client, 
 		return false
 	}
 
-	checkStatuses(curClient, curClient.Profile.Contacts)
+	checkStatuses(curClient, curClient.Profile.Snapshot().Contacts)
 	return true
 }
 
@@ -462,7 +480,7 @@ func processStatus(message Message, conn *net.Conn, curClient *client.Client, id
 
 	i, err := strconv.Atoi(message.Messages[0])
 	if err == nil {
-		c := contact.GetContact(curClient.Profile.Contacts, i)
+		c := contact.GetContact(curClient.Profile.Snapshot().Contacts, i)
 		if c != nil {
 			list := client.GetClientsList(c.Pid)
 			if len(list) > 0 {
@@ -489,12 +507,12 @@ func processInfoContact(message Message, conn *net.Conn, curClient *client.Clien
 
 	i, err := strconv.Atoi(message.Messages[0])
 	if err == nil {
-		c := contact.GetContact(curClient.Profile.Contacts, i)
+		c := contact.GetContact(curClient.Profile.Snapshot().Contacts, i)
 		if c != nil {
 			list := client.GetClientsList(c.Pid)
 			if len(list) != 0 {
 				for _, peer := range list {
-					sendMessage(peer.Conn, TMessInfoContact, curClient.Pid, c.Digest, c.Salt)
+					sendMessage(peer.Snapshot().Conn, TMessInfoContact, curClient.Pid, c.Digest, c.Salt)
 				}
 			} else {
 				log.Errorf("%s нет такого контакта в сети", id)
@@ -533,8 +551,9 @@ func processInfoAnswer(message Message, conn *net.Conn, curClient *client.Client
 	list := client.GetClientsList(message.Messages[0])
 	if len(list) > 0 {
 		for _, peer := range list {
-			if peer.Profile != nil {
-				sendMessage(peer.Conn, TMessInfoAnswer, message.Messages...)
+			state := peer.Snapshot()
+			if state.Profile != nil {
+				sendMessage(state.Conn, TMessInfoAnswer, message.Messages...)
 				log.Infof("%s вернули ответ", id)
 			} else {
 				log.Errorf("%s деавторизованный профиль", id)
@@ -566,7 +585,7 @@ func processManage(message Message, conn *net.Conn, curClient *client.Client, id
 
 	i, err := strconv.Atoi(message.Messages[0])
 	if err == nil {
-		c := contact.GetContact(curClient.Profile.Contacts, i)
+		c := contact.GetContact(curClient.Profile.Snapshot().Contacts, i)
 		if c != nil {
 			list := client.GetClientsList(c.Pid)
 			if len(list) > 0 {
@@ -575,7 +594,7 @@ func processManage(message Message, conn *net.Conn, curClient *client.Client, id
 					content = append(content, curClient.Pid, c.Digest, c.Salt)
 					content = append(content, message.Messages[1:]...)
 
-					sendMessage(peer.Conn, TMessManage, content...)
+					sendMessage(peer.Snapshot().Conn, TMessManage, content...)
 				}
 			} else {
 				log.Errorf("%s нет такого контакта в сети", id)
@@ -618,6 +637,7 @@ func processContactReverse(message Message, conn *net.Conn, curClient *client.Cl
 
 	curProfile := profile.GetProfile(message.Messages[0])
 	if curProfile != nil {
+		curProfile.Lock()
 		if common.GetSHA256(curProfile.Pass+curClient.Salt) == message.Messages[1] {
 			i := contact.GetNewId(curProfile.Contacts)
 
@@ -631,19 +651,22 @@ func processContactReverse(message Message, conn *net.Conn, curClient *client.Cl
 			c.Pid = curClient.Pid
 			c.Digest = message.Messages[1]
 			c.Salt = curClient.Salt
+			caption, pid := c.Caption, c.Pid
+			curProfile.Unlock()
 
 			//добавим этот профиль к авторизованному списку
 			client.AddContainedProfile(curClient.Pid, curProfile)
 
 			//отправим всем авторизованным об изменениях
 			for _, client := range client.GetAuthorizedClientList(curProfile.Email) {
-				sendMessage(client.Conn, TMessContact, fmt.Sprint(i), "node", c.Caption, c.Pid, "", "-1")
-				sendMessage(client.Conn, TMessStatus, fmt.Sprint(i), "1")
+				sendMessage(client.Snapshot().Conn, TMessContact, fmt.Sprint(i), "node", caption, pid, "", "-1")
+				sendMessage(client.Snapshot().Conn, TMessStatus, fmt.Sprint(i), "1")
 			}
 
 			log.Infof("%s операция с контактом выполнена", id)
 			return true
 		}
+		curProfile.Unlock()
 	}
 
 	log.Errorf("%s не удалось добавить контакт в чужой профиль", id)
@@ -658,7 +681,7 @@ func processServers(message Message, conn *net.Conn, curClient *client.Client, i
 
 	log.Infof("%s пришел запрос на информацию об агентах", id)
 
-	if common.Options.Mode != common.ModeMaster {
+	if common.GetOptions().Mode != common.ModeMaster {
 		return false
 	}
 

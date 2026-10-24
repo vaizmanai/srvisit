@@ -51,12 +51,7 @@
 					}
 				}
 
-				if (m === 'reload') {
-					req.open('GET', '/api?make=reload', true)
-				}
-				if (m === 'options_get') {
-					req.open('GET', '/api?make=options_get', true)
-				}
+				req.open(m === 'options_get' ? 'GET' : 'POST', '/api?make=' + encodeURIComponent(m), true)
 				
 				req.send(null)
 				//statusElem.innerHTML = "запрос"
@@ -109,8 +104,8 @@
 							<br><br>
 							<div class="amid">
 								<input type="submit" value="Сохранить">
-								<input type="button" value="Перезапустить" onclick="/api?make=reload">
-                                <input type="button" value="Перечитать VNC" onclick="/api?make=reopen">
+								<input type="button" value="Перезапустить" onclick="make('reload')">
+                                <input type="button" value="Перечитать VNC" onclick="make('reopen')">
 							</div>
 						</form>
 					</td>

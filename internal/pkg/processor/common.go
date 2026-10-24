@@ -9,7 +9,6 @@ import (
 	"github.com/vaizmanai/srvisit/internal/pkg/contact"
 	"github.com/vaizmanai/srvisit/internal/pkg/profile"
 	"net"
-	"runtime/debug"
 	"sync"
 	"time"
 )
@@ -91,7 +90,8 @@ var (
 	nodes sync.Map
 
 	//сокет до мастера
-	master *net.Conn
+	master      *net.Conn
+	masterMutex sync.RWMutex
 
 	//messStaticText текстовая расшифровка статических сообщений
 	messStaticText = []string{
@@ -109,8 +109,10 @@ var (
 	arrayVnc   []common.VNC
 
 	//только для отображения на карте используем
-	myIp        = ""
-	coordinates [2]float64
+	myIp          = ""
+	coordinates   [2]float64
+	locationMutex sync.RWMutex
+	vncMutex      sync.RWMutex
 )
 
 // Node информация о ноде
@@ -133,10 +135,11 @@ type dConn struct {
 	client  *client.Client //кому транслируем
 	server  *client.Client //кто транслирует
 	pointer [2]*net.Conn
-	flag    [2]bool
 	node    *Node
 	address string
-	mutex   sync.Mutex
+	ready   chan struct{}
+	closed  bool
+	mutex   sync.RWMutex
 }
 
 // processingAgent обработчик для запросов агенту
@@ -180,7 +183,7 @@ func printMessage(TMessage int, Messages ...string) []byte {
 }
 
 func sendMessage(conn *net.Conn, TMessage int, Messages ...string) bool {
-	if conn == nil {
+	if conn == nil || *conn == nil {
 		log.Errorf("нет сокета для отправки")
 		return false
 	}
@@ -200,35 +203,36 @@ func sendMessage(conn *net.Conn, TMessage int, Messages ...string) bool {
 func sendMessageToAllClients(TMessage int, Messages ...string) {
 	for _, c := range client.GetAllClientsList() {
 		if c != nil {
-			sendMessage((*c).Conn, TMessage, Messages...)
+			sendMessage(c.Snapshot().Conn, TMessage, Messages...)
 		}
 	}
 }
 
 func HelperThread() {
 	log.Infof("helperThread запустился")
-	for true {
+	for {
 		profile.SaveProfiles()
 		common.CleanOldCacheCoordinates()
 		common.SwiftCounter()
-		debug.FreeOSMemory()
 		common.RotateLogFiles()
 
 		time.Sleep(time.Second * common.WaitHelperCycle)
 	}
-	log.Infof("helperThread закончил работу")
 }
 
 // addClientToProfile пробежимся по профилям и найдем, где есть контакты с нашим пид и добавим этот профиль нам
 func addClientToProfile(c *client.Client) {
 	for _, p := range profile.GetProfileList() {
 		//если этот клиент есть в конкретном профиле
-		if contact.GetContactByPid(p.Contacts, common.CleanPid(c.Pid)) != nil {
+		p.Lock()
+		contained := contact.GetContactByPid(p.Contacts, common.CleanPid(c.Snapshot().Pid)) != nil
+		p.Unlock()
+		if contained {
 			client.AddContainedProfile(c.Pid, p)
 
 			//отправим всем авторизованным в этот профиль обновление статуса
 			for _, authClient := range client.GetAuthorizedClientList(p.Email) {
-				sendMessage(authClient.Conn, TMessStatus, common.CleanPid(c.Pid), "1")
+				sendMessage(authClient.Snapshot().Conn, TMessStatus, common.CleanPid(c.Snapshot().Pid), "1")
 			}
 		}
 	}
@@ -255,12 +259,15 @@ func checkStatuses(curClient *client.Client, first *contact.Contact) {
 }
 
 func sendRawBytes(conn *net.Conn, bytes []byte) bool {
+	if conn == nil || *conn == nil {
+		return false
+	}
 	err := (*conn).SetWriteDeadline(time.Now().Add(time.Second * common.WriteTimeout))
 	if err != nil {
 		return false
 	}
 
-	_, err = (*conn).Write(bytes)
+	_, err = writeAll(*conn, bytes)
 	if err != nil {
 		return false
 	}
@@ -268,17 +275,24 @@ func sendRawBytes(conn *net.Conn, bytes []byte) bool {
 }
 
 func UpdateMyIP() {
-	myIp = common.GetMyIpByExternalApi()
-	if common.Options.MyCoordinates == [2]float64{0, 0} { //options.MyCoordinates[0] == 0 && options.MyCoordinates[1] == 0 {
-		coordinates = common.GetCoordinatesByYandex(myIp)
-	} else {
-		coordinates = common.Options.MyCoordinates
+	ip := common.GetMyIpByExternalApi()
+	position := common.GetOptions().MyCoordinates
+	if position == [2]float64{} {
+		position = common.GetCoordinatesByYandex(ip)
 	}
+	locationMutex.Lock()
+	myIp, coordinates = ip, position
+	locationMutex.Unlock()
 }
 
 func LoadVNCList() {
-	if err := common.LoadFile(common.VNCFileList, &arrayVnc); err != nil {
+	var list []common.VNC
+	if err := common.LoadFile(common.VNCFileList, &list); err != nil {
 		log.Errorf("loading file: %s", err.Error())
+		return
 	}
+	vncMutex.Lock()
+	defer vncMutex.Unlock()
+	arrayVnc = list
 	defaultVnc = 0
 }

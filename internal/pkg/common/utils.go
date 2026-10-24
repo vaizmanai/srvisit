@@ -1,18 +1,19 @@
 package common
 
 import (
+	cryptorand "crypto/rand"
 	"crypto/sha256"
-	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"github.com/Shopify/gomail"
 	log "github.com/sirupsen/logrus"
 	"io"
-	"math/rand"
+	"math/rand/v2"
 	"net"
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -22,6 +23,8 @@ import (
 var (
 	//файл для хранения лога
 	logFile            *os.File
+	logMutex           sync.Mutex
+	externalHTTPClient = &http.Client{Timeout: 10 * time.Second}
 	ipCoordinatesCache = map[string]struct {
 		created time.Time
 		values  [2]float64
@@ -34,42 +37,68 @@ func init() {
 		DisableQuote: true,
 	})
 	log.SetLevel(log.InfoLevel)
-	logFile, _ = os.OpenFile(LogName, os.O_CREATE|os.O_WRONLY|os.O_APPEND, os.ModePerm)
-	log.SetOutput(io.MultiWriter(logFile, os.Stdout))
+	logFile, _ = os.OpenFile(LogName, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
+	log.SetOutput(logWriter{})
+}
+
+type logWriter struct{}
+
+func (logWriter) Write(p []byte) (int, error) {
+	logMutex.Lock()
+	defer logMutex.Unlock()
+	if logFile != nil {
+		// A file error must not suppress output to the console.
+		_, _ = logFile.Write(p)
+	}
+	return os.Stdout.Write(p)
+}
+
+func openLogFileLocked(flags int) error {
+	if logFile != nil {
+		_ = logFile.Close()
+	}
+	var err error
+	logFile, err = os.OpenFile(LogName, os.O_CREATE|os.O_WRONLY|flags, 0600)
+	return err
 }
 
 func ReOpenLogFile() {
-	logFile, _ = os.OpenFile(LogName, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.ModePerm)
-	log.SetOutput(io.MultiWriter(logFile, os.Stdout))
-	log.Infof("truncate log file")
+	logMutex.Lock()
+	err := openLogFileLocked(os.O_TRUNC)
+	logMutex.Unlock()
+	if err != nil {
+		log.Errorf("opening logs: %s", err)
+	}
 }
 
 func CloseLogFile() {
-	log.SetOutput(os.Stdout)
-
+	logMutex.Lock()
+	defer logMutex.Unlock()
 	if logFile != nil {
-		if err := logFile.Close(); err != nil {
-			log.Warnf("closing logs: %s", err.Error())
-		}
+		_ = logFile.Close()
 	}
-
 	logFile = nil
 }
 
 func RotateLogFiles() {
+	logMutex.Lock()
 	fs, err := os.Stat(LogName)
-	if err != nil {
+	if err != nil || fs.Size() <= maxLogFileMb*1024*1024 {
+		logMutex.Unlock()
 		return
 	}
-
-	if fs.Size() > maxLogFileMb*1024*1024 {
-		CloseLogFile()
-
-		if err = os.Rename(LogName, LogName+".old"); err != nil {
-			return
-		}
-
-		ReOpenLogFile()
+	if logFile != nil {
+		_ = logFile.Close()
+		logFile = nil
+	}
+	err = os.Rename(LogName, LogName+".old")
+	openErr := openLogFileLocked(os.O_APPEND)
+	logMutex.Unlock()
+	if err != nil {
+		log.Errorf("rotating logs: %s", err)
+	}
+	if openErr != nil {
+		log.Errorf("opening logs: %s", openErr)
 	}
 }
 
@@ -119,28 +148,42 @@ func CleanPid(pid string) string {
 }
 
 func RandomString(l int) string {
-	bytes := make([]byte, l)
-	for i := 0; i < l; i++ {
-		bytes[i] = byte(RandInt(65, 91))
+	result := make([]byte, l)
+	entropy := make([]byte, l)
+	for n := 0; n < l; {
+		if _, err := cryptorand.Read(entropy); err != nil {
+			panic(err)
+		}
+		for _, b := range entropy {
+			// Reject the incomplete alphabet at the end of the byte range.
+			if b >= 26*9 {
+				continue
+			}
+			result[n] = 'A' + b%26
+			n++
+			if n == l {
+				break
+			}
+		}
 	}
-	return string(bytes)
+	return string(result)
 }
 
 func RandInt(min int, max int) int {
-	return min + rand.Intn(max-min)
+	return min + rand.IntN(max-min)
 }
 
 func SwiftCounter() {
-	counterData.mutex.Lock()
-	defer counterData.mutex.Unlock()
+	counterMutex.Lock()
+	defer counterMutex.Unlock()
 
-	if time.Now().Hour() != counterData.currentPos.Hour() {
-		now := time.Now()
+	now := time.Now()
+	if !now.Truncate(time.Hour).Equal(counterData.currentPos.Truncate(time.Hour)) {
 		counterData.CounterBytes[time.Now().Hour()] = 0
 		counterData.CounterConnections[time.Now().Hour()] = 0
 		counterData.CounterClients[time.Now().Hour()] = counterData.CounterClients[counterData.currentPos.Hour()]
 
-		if time.Now().Day() != counterData.currentPos.Day() {
+		if now.Year() != counterData.currentPos.Year() || now.YearDay() != counterData.currentPos.YearDay() {
 			counterData.CounterDayWeekBytes[int(time.Now().Weekday())] = 0
 			counterData.CounterDayWeekConnections[int(time.Now().Weekday())] = 0
 			counterData.CounterDayWeekClients[time.Now().Weekday()] = counterData.CounterClients[counterData.currentPos.Hour()]
@@ -153,25 +196,33 @@ func SwiftCounter() {
 			counterData.CounterDayYearConnections[(time.Now().YearDay() - 1)] = 0
 			counterData.CounterDayYearClients[time.Now().YearDay()-1] = counterData.CounterClients[counterData.currentPos.Hour()]
 
-			if time.Now().Month() != counterData.currentPos.Month() {
+			if now.Year() != counterData.currentPos.Year() || now.Month() != counterData.currentPos.Month() {
 				counterData.CounterMonthBytes[int(time.Now().Month()-1)] = 0
 				counterData.CounterMonthConnections[int(time.Now().Month()-1)] = 0
 				counterData.CounterMonthClients[time.Now().Month()-1] = counterData.CounterClients[counterData.currentPos.Hour()]
 			}
 		}
 
-		SaveCounters()
 		counterData.currentPos = now
+		saveCountersLocked()
 	}
 }
 
 func SaveCounters() {
+	counterMutex.Lock()
+	defer counterMutex.Unlock()
+	saveCountersLocked()
+}
+
+func saveCountersLocked() {
 	if err := SaveFile(CountersFilename, &counterData); err != nil {
 		log.Errorf("saving counters: %s", err.Error())
 	}
 }
 
 func LoadCounters() {
+	counterMutex.Lock()
+	defer counterMutex.Unlock()
 	if err := LoadFile(CountersFilename, &counterData); err != nil {
 		log.Errorf("loading counters: %s", err.Error())
 	}
@@ -181,8 +232,8 @@ func LoadCounters() {
 }
 
 func AddCounter(bytes uint64) {
-	counterData.mutex.Lock()
-	defer counterData.mutex.Unlock()
+	counterMutex.Lock()
+	defer counterMutex.Unlock()
 
 	counterData.CounterBytes[counterData.currentPos.Hour()] = counterData.CounterBytes[counterData.currentPos.Hour()] + bytes
 	counterData.CounterConnections[counterData.currentPos.Hour()] = counterData.CounterConnections[counterData.currentPos.Hour()] + 1
@@ -202,13 +253,15 @@ func AddCounter(bytes uint64) {
 
 func UpdateCounterClient(adding bool) {
 
-	counterData.mutex.Lock()
-	defer counterData.mutex.Unlock()
+	counterMutex.Lock()
+	defer counterMutex.Unlock()
 
 	if adding {
 		counterData.CounterClients[counterData.currentPos.Hour()] = counterData.CounterClients[counterData.currentPos.Hour()] + 1
 	} else {
-		counterData.CounterClients[counterData.currentPos.Hour()] = counterData.CounterClients[counterData.currentPos.Hour()] - 1
+		if counterData.CounterClients[counterData.currentPos.Hour()] > 0 {
+			counterData.CounterClients[counterData.currentPos.Hour()]--
+		}
 		return
 	}
 
@@ -232,21 +285,31 @@ func UpdateCounterClient(adding bool) {
 }
 
 func GetCoordinatesByYandex(addr string) [2]float64 {
+	config := GetOptions()
+	if config.YandexApiKeyMap == "" || net.ParseIP(addr) == nil {
+		return [2]float64{}
+	}
+	ttl := time.Duration(config.IpCoordinateCacheTimeoutHours) * time.Hour
 	mutex.Lock()
-	defer mutex.Unlock()
 	if v, ok := ipCoordinatesCache[addr]; ok {
-		if int(time.Now().Sub(v.created).Hours()) < int(time.Hour)*Options.IpCoordinateCacheTimeoutHours {
+		if time.Since(v.created) < ttl {
+			mutex.Unlock()
 			return v.values
 		}
 	}
+	mutex.Unlock()
 
-	resp, err := http.Post(UriYandexMap, "application/x-www-form-urlencoded", strings.NewReader(fmt.Sprintf("json=%s", url.QueryEscape(fmt.Sprintf(ReqYandexMap, Options.YandexApiKeyMap, addr)))))
+	resp, err := externalHTTPClient.Post(UriYandexMap, "application/x-www-form-urlencoded", strings.NewReader(fmt.Sprintf("json=%s", url.QueryEscape(fmt.Sprintf(ReqYandexMap, config.YandexApiKeyMap, addr)))))
 	if err != nil {
 		//todo надо мой айпи адрес как-то указать
 		return [2]float64{0, 0}
 	}
 
-	b, err := io.ReadAll(resp.Body)
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return [2]float64{}
+	}
+	b, err := io.ReadAll(io.LimitReader(resp.Body, 64<<10))
 	if err != nil {
 		//todo надо мой айпи адрес как-то указать
 		return [2]float64{0, 0}
@@ -263,6 +326,8 @@ func GetCoordinatesByYandex(addr string) [2]float64 {
 		return [2]float64{0, 0}
 	}
 
+	mutex.Lock()
+	defer mutex.Unlock()
 	item := ipCoordinatesCache[addr]
 	item.created = time.Now()
 	item.values = [2]float64{respYandex.Position.Latitude, respYandex.Position.Longitude}
@@ -271,11 +336,12 @@ func GetCoordinatesByYandex(addr string) [2]float64 {
 }
 
 func CleanOldCacheCoordinates() {
+	ttl := time.Duration(GetOptions().IpCoordinateCacheTimeoutHours) * time.Hour
 	mutex.Lock()
 	defer mutex.Unlock()
 
 	for k, v := range ipCoordinatesCache {
-		if int(time.Now().Sub(v.created).Hours()) > int(time.Hour)*Options.IpCoordinateCacheTimeoutHours {
+		if time.Since(v.created) >= ttl {
 			delete(ipCoordinatesCache, k)
 		}
 	}
@@ -294,12 +360,16 @@ func GetSHA256(str string) string {
 }
 
 func SendEmail(to, subject, body string) (bool, error) {
-	p, _ := strconv.Atoi(Options.PortSMTP)
-	d := gomail.NewDialer(Options.ServerSMTP, p, Options.LoginSMTP, Options.PassSMTP)
-	d.TLSConfig = &tls.Config{InsecureSkipVerify: true}
+	config := GetOptions()
+	p, err := strconv.Atoi(config.PortSMTP)
+	if err != nil || p < 1 || p > 65535 || config.ServerSMTP == "" {
+		return false, fmt.Errorf("invalid SMTP server or port")
+	}
+	d := gomail.NewDialer(config.ServerSMTP, p, config.LoginSMTP, config.PassSMTP)
+	d.StartTLSPolicy = gomail.MandatoryStartTLS
 
 	m := gomail.NewMessage()
-	m.SetHeader("From", Options.LoginSMTP)
+	m.SetHeader("From", config.LoginSMTP)
 	m.SetHeader("To", to)
 	m.SetHeader("Subject", subject)
 	m.SetBody("text/html; charset=utf-8", body)
@@ -311,31 +381,42 @@ func SendEmail(to, subject, body string) (bool, error) {
 }
 
 func GetCounterHour() []string {
+	counterMutex.Lock()
+	defer counterMutex.Unlock()
 	return getCounter(counterData.CounterBytes[:], counterData.CounterConnections[:], counterData.CounterClients[:], 24, counterData.currentPos.Hour())
 }
 
 func GetCounterDayWeek() []string {
+	counterMutex.Lock()
+	defer counterMutex.Unlock()
 	return getCounter(counterData.CounterDayWeekBytes[:], counterData.CounterDayWeekConnections[:], counterData.CounterDayWeekClients[:], 7, int(counterData.currentPos.Weekday()))
 }
 
 func GetCounterDay() []string {
+	counterMutex.Lock()
+	defer counterMutex.Unlock()
 	return getCounter(counterData.CounterDayBytes[:], counterData.CounterDayConnections[:], counterData.CounterDayClients[:], 31, counterData.currentPos.Day()-1)
 }
 
 func GetCounterDayYear() []string {
-	return getCounter(counterData.CounterDayYearBytes[:], counterData.CounterDayYearConnections[:], counterData.CounterDayYearClients[:], 365, counterData.currentPos.YearDay()-1)
+	counterMutex.Lock()
+	defer counterMutex.Unlock()
+	days := time.Date(counterData.currentPos.Year(), time.December, 31, 0, 0, 0, 0, time.UTC).YearDay()
+	return getCounter(counterData.CounterDayYearBytes[:], counterData.CounterDayYearConnections[:], counterData.CounterDayYearClients[:], days, counterData.currentPos.YearDay()-1)
 }
 
 func GetCounterMonth() []string {
+	counterMutex.Lock()
+	defer counterMutex.Unlock()
 	return getCounter(counterData.CounterMonthBytes[:], counterData.CounterMonthConnections[:], counterData.CounterMonthClients[:], 12, int(counterData.currentPos.Month()-1))
 }
 
 func getCounter(bytes []uint64, connections []uint64, clients []uint64, maxIndex int, curIndex int) []string {
 	h := curIndex + 1
 
-	values1 := append(bytes[h:], bytes[:h]...)
-	values2 := append(connections[h:], connections[:h]...)
-	values3 := append(clients[h:], clients[:h]...)
+	values1 := append(append(make([]uint64, 0, maxIndex), bytes[h:maxIndex]...), bytes[:h]...)
+	values2 := append(append(make([]uint64, 0, maxIndex), connections[h:maxIndex]...), connections[:h]...)
+	values3 := append(append(make([]uint64, 0, maxIndex), clients[h:maxIndex]...), clients[:h]...)
 
 	for i := 0; i < maxIndex; i++ {
 		values1[i] = values1[i] / 2
@@ -426,19 +507,27 @@ func GetMyIp() string {
 }
 
 func GetMyIpByExternalApi() string {
-	resp, err := http.Get(UriServiceIpIFY)
+	resp, err := externalHTTPClient.Get(UriServiceIpIFY)
 	if err != nil {
 		//todo надо мой айпи адрес как-то указать
 		return ""
 	}
 
-	b, err := io.ReadAll(resp.Body)
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return ""
+	}
+	b, err := io.ReadAll(io.LimitReader(resp.Body, 128))
 	if err != nil {
 		//todo надо мой айпи адрес как-то указать
 		return ""
 	}
 
-	return string(b)
+	ip := strings.TrimSpace(string(b))
+	if net.ParseIP(ip) == nil {
+		return ""
+	}
+	return ip
 }
 
 func SaveFile(name string, data interface{}) error {
@@ -447,28 +536,31 @@ func SaveFile(name string, data interface{}) error {
 		return fmt.Errorf("marshal: %w", err)
 	}
 
-	_ = os.Remove(fmt.Sprintf("%s.tmp", name))
-	_ = os.Rename(name, fmt.Sprintf("%s.tmp", name))
-
-	f, err := os.Create(fmt.Sprintf("%s", name))
+	f, err := os.CreateTemp(filepath.Dir(name), "."+filepath.Base(name)+".*.tmp")
 	if err != nil {
 		return fmt.Errorf("saving: %w", err)
 	}
 
-	defer func() {
-		if err = f.Close(); err != nil {
-			log.Errorf("closing: %s", err.Error())
-		}
-	}()
+	defer os.Remove(f.Name())
+	defer f.Close()
 
 	n, err := f.Write(b)
-	if n == len(b) && err == nil {
-		return nil
-	} else if err != nil {
+	if err != nil {
 		return fmt.Errorf("writing: %w", err)
-	} else {
-		return nil
 	}
+	if n != len(b) {
+		return io.ErrShortWrite
+	}
+	if err := f.Sync(); err != nil {
+		return fmt.Errorf("syncing: %w", err)
+	}
+	if err := f.Close(); err != nil {
+		return fmt.Errorf("closing: %w", err)
+	}
+	if err := os.Rename(f.Name(), name); err != nil {
+		return fmt.Errorf("replacing: %w", err)
+	}
+	return nil
 }
 
 func LoadFile(name string, data interface{}) error {

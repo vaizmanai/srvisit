@@ -2,6 +2,7 @@ package processor
 
 import (
 	"bytes"
+	"crypto/subtle"
 	"encoding/json"
 	"fmt"
 	log "github.com/sirupsen/logrus"
@@ -10,11 +11,13 @@ import (
 	"github.com/vaizmanai/srvisit/internal/pkg/common"
 	"github.com/vaizmanai/srvisit/internal/pkg/contact"
 	"github.com/vaizmanai/srvisit/internal/pkg/profile"
-	"io"
+	"html"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -78,10 +81,8 @@ type ProcessingWeb struct {
 // хэндлеры для профиля
 func handleProfileWelcome(w http.ResponseWriter, r *http.Request) {
 
-	file, _ := os.Open("resource/profile/welcome.html")
-	body, err := io.ReadAll(file)
+	body, err := readPage(w, "resource/profile/welcome.html")
 	if err == nil {
-		_ = file.Close()
 
 		body = pageReplace(body, "$menu", addMenuProfile())
 		_, _ = w.Write(body)
@@ -97,10 +98,8 @@ func handleProfileMy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	file, _ := os.Open("resource/profile/my.html")
-	body, err := io.ReadAll(file)
+	body, err := readPage(w, "resource/profile/my.html")
 	if err == nil {
-		_ = file.Close()
 
 		body = pageReplace(body, "$menu", addMenuProfile())
 		_, _ = w.Write(body)
@@ -111,10 +110,8 @@ func handleProfileMy(w http.ResponseWriter, r *http.Request) {
 // хэндлеры для админки
 func handleWelcome(w http.ResponseWriter, r *http.Request) {
 
-	file, _ := os.Open("resource/admin/welcome.html")
-	body, err := io.ReadAll(file)
+	body, err := readPage(w, "resource/admin/welcome.html")
 	if err == nil {
-		_ = file.Close()
 
 		body = pageReplace(body, "$menu", addMenuAdmin())
 		_, _ = w.Write(body)
@@ -132,11 +129,11 @@ func handleResources(w http.ResponseWriter, r *http.Request) {
 	connectionsString := ""
 
 	var buf1 string
-	if common.Options.Mode == common.ModeMaster {
+	if common.GetOptions().Mode == common.ModeMaster {
 		connectionsString = connectionsString + fmt.Sprint("\n\n<a href='#'>агенты</a><br><pre>\n")
 		nodes.Range(func(key interface{}, value interface{}) bool {
 			agent := value.(*Node)
-			connectionsString = connectionsString + fmt.Sprintf("%-16s%-26s%s\n", agent.Id, agent.Ip, agent.Name)
+			connectionsString += html.EscapeString(fmt.Sprintf("%-16s%-26s%s\n", agent.Id, agent.Ip, agent.Name))
 			return true
 		})
 		connectionsString = connectionsString + fmt.Sprint("</pre>\n")
@@ -145,23 +142,28 @@ func handleResources(w http.ResponseWriter, r *http.Request) {
 	connectionsString = connectionsString + fmt.Sprint("\n\n<a href='#' onclick='show(clients);'>клиенты</a><br>")
 	connectionsString = connectionsString + fmt.Sprint("<div id='clients' class='hidden'><pre>")
 
-	for _, c := range client.GetAllClientsList() {
+	for _, connected := range client.GetAllClientsList() {
+		c := connected.Snapshot()
 		if c.Profile == nil {
 			buf1 = "no auth"
 		} else {
 			buf1 = c.Profile.Email
 		}
 
-		connectionsString = connectionsString + fmt.Sprintln(c.Pid, c.Serial, c.Version, (*c.Conn).RemoteAddr(), buf1)
+		var address string
+		if c.Conn != nil && *c.Conn != nil {
+			address = (*c.Conn).RemoteAddr().String()
+		}
+		connectionsString += html.EscapeString(fmt.Sprintln(c.Pid, c.Serial, c.Version, address, buf1))
 
 		for _, p := range client.GetContainedProfileList(c.Pid) {
 			var capt string
-			c := contact.GetContactByPid(p.Contacts, common.CleanPid(c.Pid)) //todo потом убрать, лишние итерации не сильно нам интересны
+			c := contact.GetContactByPid(p.Snapshot().Contacts, common.CleanPid(c.Pid)) //todo потом убрать, лишние итерации не сильно нам интересны
 			if c != nil {
 				capt = fmt.Sprint("/ ", c.Caption)
 			}
 
-			connectionsString = connectionsString + fmt.Sprintln("\t ->", p.Email, capt)
+			connectionsString += html.EscapeString(fmt.Sprintln("\t ->", p.Email, capt))
 		}
 	}
 
@@ -170,8 +172,17 @@ func handleResources(w http.ResponseWriter, r *http.Request) {
 
 	channels.Range(func(key interface{}, value interface{}) bool {
 		dConn := value.(*dConn)
+		dConn.mutex.RLock()
+		defer dConn.mutex.RUnlock()
+		if dConn.client == nil || dConn.server == nil || dConn.closed {
+			return true
+		}
+		receiving, sending := dConn.client.Snapshot(), dConn.server.Snapshot()
+		if receiving.Conn == nil || sending.Conn == nil {
+			return true
+		}
 
-		connectionsString = connectionsString + fmt.Sprint(key.(string), "\n")
+		connectionsString += html.EscapeString(fmt.Sprint(key.(string), "\n"))
 
 		var p1, p2, ps string
 
@@ -202,26 +213,28 @@ func handleResources(w http.ResponseWriter, r *http.Request) {
 		} else if dConn.node != nil {
 			ps = dConn.node.Ip + "(a)"
 		} else {
+			locationMutex.RLock()
 			ps = myIp + "(m)"
+			locationMutex.RUnlock()
 		}
 
-		connectionsString = connectionsString + fmt.Sprintf("%-26s%-26s%-26s\n", p1+" <", "> "+ps+" <", "> "+p2)
+		connectionsString += html.EscapeString(fmt.Sprintf("%-26s%-26s%-26s\n", p1+" <", "> "+ps+" <", "> "+p2))
 
-		connectionsString = connectionsString + fmt.Sprintf("%-54s%-54s\n", dConn.server.Pid+" "+dConn.server.Version, dConn.client.Pid+" "+dConn.client.Version)
+		connectionsString += html.EscapeString(fmt.Sprintf("%-54s%-54s\n", sending.Pid+" "+sending.Version, receiving.Pid+" "+receiving.Version))
 
-		if dConn.server.Profile != nil {
-			p1 = dConn.server.Profile.Email
+		if sending.Profile != nil {
+			p1 = sending.Profile.Email
 		} else {
 			p1 = ""
 		}
 
-		if dConn.client.Profile != nil {
-			p2 = dConn.client.Profile.Email
+		if receiving.Profile != nil {
+			p2 = receiving.Profile.Email
 		} else {
 			p2 = ""
 		}
 
-		connectionsString = connectionsString + fmt.Sprintf("%-54s%-54s\n\n", p1, p2)
+		connectionsString += html.EscapeString(fmt.Sprintf("%-54s%-54s\n\n", p1, p2))
 		return true
 	})
 
@@ -231,19 +244,17 @@ func handleResources(w http.ResponseWriter, r *http.Request) {
 	connectionsString = connectionsString + fmt.Sprint("<div id='profiles' class='hidden'><pre>")
 
 	for _, p := range profile.GetProfileList() {
-		connectionsString = connectionsString + fmt.Sprintln(p.Email) //(*value.(*Profile)).Pass)
+		connectionsString += html.EscapeString(fmt.Sprintln(p.Email))
 
 		for _, c := range client.GetAuthorizedClientList(p.Email) {
-			connectionsString = connectionsString + fmt.Sprintln("\t", "<- "+c.Pid)
+			connectionsString += html.EscapeString(fmt.Sprintln("\t", "<- "+c.Snapshot().Pid))
 		}
 	}
 
 	connectionsString = connectionsString + "</pre></div>"
 
-	file, _ := os.Open("resource/admin/resources.html")
-	body, err := io.ReadAll(file)
+	body, err := readPage(w, "resource/admin/resources.html")
 	if err == nil {
-		_ = file.Close()
 
 		body = pageReplace(body, "$menu", addMenuAdmin())
 		body = pageReplace(body, "$connections", connectionsString)
@@ -258,10 +269,8 @@ func handleStatistics(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	file, _ := os.Open("resource/admin/statistics.html")
-	body, err := io.ReadAll(file)
+	body, err := readPage(w, "resource/admin/statistics.html")
 	if err == nil {
-		_ = file.Close()
 
 		body = pageReplace(body, "$menu", addMenuAdmin())
 		body = pageReplace(body, "$clients", addClientsStatisticsAdmin())
@@ -309,10 +318,8 @@ func handleOptions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	file, _ := os.Open("resource/admin/Options.html")
-	body, err := io.ReadAll(file)
+	body, err := readPage(w, "resource/admin/options.html")
 	if err == nil {
-		_ = file.Close()
 
 		body = pageReplace(body, "$menu", addMenuAdmin())
 		//body = pageReplace(body, "$logs", logsString)
@@ -328,10 +335,8 @@ func handleLogs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	file, _ := os.Open("resource/admin/logs.html")
-	body, err := io.ReadAll(file)
+	body, err := readPage(w, "resource/admin/logs.html")
 	if err == nil {
-		_ = file.Close()
 
 		body = pageReplace(body, "$menu", addMenuAdmin())
 		//body = pageReplace(body, "$logs", logsString)
@@ -343,12 +348,35 @@ func handleLogs(w http.ResponseWriter, r *http.Request) {
 
 // ресурсы и api
 func handleResource(w http.ResponseWriter, r *http.Request) {
-	http.ServeFile(w, r, r.URL.Path[1:])
+	http.StripPrefix("/resource/", http.FileServer(http.Dir("resource"))).ServeHTTP(w, r)
+}
+
+func readPage(w http.ResponseWriter, name string) ([]byte, error) {
+	body, err := os.ReadFile(name)
+	if err != nil {
+		http.Error(w, "page is unavailable", http.StatusInternalServerError)
+	}
+	return body, err
 }
 
 func handleAPI(w http.ResponseWriter, r *http.Request) {
 
 	actMake := r.URL.Query().Get("make")
+	switch actMake {
+	case "clearlog", "profile_save", "save_options", "options_save", "reload", "reopen":
+		if r.Method != http.MethodPost {
+			w.Header().Set("Allow", http.MethodPost)
+			http.Error(w, "POST required", http.StatusMethodNotAllowed)
+			return
+		}
+		if origin := r.Header.Get("Origin"); origin != "" {
+			source, err := url.Parse(origin)
+			if err != nil || (source.Scheme != "http" && source.Scheme != "https") || !strings.EqualFold(source.Host, r.Host) {
+				http.Error(w, "invalid origin", http.StatusForbidden)
+				return
+			}
+		}
+	}
 
 	for _, m := range processingWeb {
 		if actMake == m.Make {
@@ -371,7 +399,9 @@ func handleAPI(w http.ResponseWriter, r *http.Request) {
 func processApiDefaultVnc(w http.ResponseWriter, r *http.Request) {
 	log.Infof("WEB Запрос vnc версии по-умолчанию")
 
-	if len(arrayVnc) < defaultVnc {
+	vncMutex.RLock()
+	defer vncMutex.RUnlock()
+	if defaultVnc >= 0 && defaultVnc < len(arrayVnc) {
 		buff, err := json.Marshal(arrayVnc[defaultVnc])
 		if err != nil {
 			log.Errorf("WEB Не получилось отправить версию VNC")
@@ -384,6 +414,8 @@ func processApiDefaultVnc(w http.ResponseWriter, r *http.Request) {
 }
 
 func processApiListVnc(w http.ResponseWriter, r *http.Request) {
+	vncMutex.RLock()
+	defer vncMutex.RUnlock()
 	log.Infof("WEB Запрос списка vnc")
 
 	buff, err := json.Marshal(arrayVnc)
@@ -408,8 +440,8 @@ func processApiClearLog(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.Infof("WEB Запрос очистки log")
-	common.CloseLogFile()
-	http.Redirect(w, r, "/admin/logs", http.StatusTemporaryRedirect)
+	common.ReOpenLogFile()
+	http.Redirect(w, r, "/admin/logs", http.StatusSeeOther)
 }
 
 func processApiProfileSave(w http.ResponseWriter, r *http.Request) {
@@ -418,7 +450,7 @@ func processApiProfileSave(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Infof("WEB Запрос сохранения профиля " + curProfile.Email)
+	log.Infof("WEB Запрос сохранения профиля %s", curProfile.Email)
 
 	pass1 := string(r.FormValue("abc"))
 	pass2 := string(r.FormValue("def"))
@@ -427,12 +459,14 @@ func processApiProfileSave(w http.ResponseWriter, r *http.Request) {
 	tel := string(r.FormValue("tel"))
 	logo := string(r.FormValue("logo"))
 
+	curProfile.Lock()
 	if (pass1 != "*****") && (len(pass1) > 3) && (pass1 == pass2) {
 		curProfile.Pass = pass1
 	}
 	curProfile.Capt = capt
 	curProfile.Tel = tel
 	curProfile.Logo = logo
+	curProfile.Unlock()
 
 	handleProfileMy(w, r)
 }
@@ -443,10 +477,11 @@ func processApiProfileGet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Infof("WEB Запрос информации профиля " + curProfile.Email)
+	log.Infof("WEB Запрос информации профиля %s", curProfile.Email)
 
-	newProfile := *curProfile
+	newProfile := curProfile.Snapshot()
 	newProfile.Pass = "*****"
+	newProfile.Contacts = nil
 	b, err := json.Marshal(&newProfile)
 	if err == nil {
 		_, _ = w.Write(b)
@@ -463,7 +498,10 @@ func processApiSaveOptions(w http.ResponseWriter, r *http.Request) {
 
 	log.Infof("WEB Запрос сохранения опций")
 
-	common.SaveOptions()
+	if err := common.SaveOptions(); err != nil {
+		http.Error(w, "couldn't save options", http.StatusInternalServerError)
+		return
+	}
 
 	handleOptions(w, r)
 }
@@ -494,7 +532,7 @@ func processApiVersion(w http.ResponseWriter, r *http.Request) {
 	log.Infof("WEB Запрос актуальной версии")
 
 	var resp [2]string
-	resp[0] = common.Options.Version
+	resp[0] = common.GetOptions().Version
 	fs, err := os.Stat("resource/reVisit.exe")
 	if err != nil {
 		log.Errorf("WEB Отсутствует клиент")
@@ -522,7 +560,7 @@ func processApiOptionsGet(w http.ResponseWriter, r *http.Request) {
 
 	log.Infof("WEB Запрос опций")
 
-	b, err := json.Marshal(common.Options)
+	b, err := json.Marshal(common.GetOptions())
 	if err == nil {
 		_, _ = w.Write(b)
 		return
@@ -538,6 +576,8 @@ func processApiOptionsSave(w http.ResponseWriter, r *http.Request) {
 
 	log.Infof("WEB Запрос сохранения опций")
 
+	config := common.GetOptions()
+	config.ServerSMTP = r.FormValue("serversmtp")
 	portsmtp := r.FormValue("portsmtp")
 	loginsmtp := r.FormValue("loginsmtp")
 	passsmtp := r.FormValue("passsmtp")
@@ -548,23 +588,29 @@ func processApiOptionsSave(w http.ResponseWriter, r *http.Request) {
 
 	mode, err := strconv.Atoi(r.FormValue("mode"))
 	if err == nil {
-		common.Options.Mode = mode
+		config.Mode = mode
 	}
 
 	bufsize, err := strconv.Atoi(r.FormValue("bufsize"))
 	if err == nil {
-		common.Options.SizeBuff = bufsize
+		config.SizeBuff = bufsize
 	}
 
-	common.Options.PortSMTP = portsmtp
-	common.Options.LoginSMTP = loginsmtp
-	common.Options.PassSMTP = passsmtp
-	common.Options.AdminLogin = loginadmin
-	common.Options.AdminPass = passadmin
-	common.Options.YandexApiKeyMap = yandex
-	common.Options.Version = version
-
-	common.SaveOptions()
+	config.PortSMTP = portsmtp
+	config.LoginSMTP = loginsmtp
+	config.PassSMTP = passsmtp
+	config.AdminLogin = loginadmin
+	config.AdminPass = passadmin
+	config.YandexApiKeyMap = yandex
+	config.Version = version
+	if err := common.SetOptions(config); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := common.SaveOptions(); err != nil {
+		http.Error(w, "couldn't save options", http.StatusInternalServerError)
+		return
+	}
 	handleOptions(w, r)
 }
 
@@ -575,14 +621,14 @@ func checkProfileAuth(w http.ResponseWriter, r *http.Request) *profile.Profile {
 
 	if ok {
 		if p := profile.GetProfile(user); p != nil {
-			if p.Pass == pass {
+			if pass != "" && subtle.ConstantTimeCompare([]byte(p.Password()), []byte(pass)) == 1 {
 				//log.Infof("WWW Аутентификация успешна " + user + "/"+ r.RemoteAddr)
 				return p
 			}
 		}
 	}
 
-	log.Errorf("WWW Аутентификация профиля провалилась " + r.RemoteAddr)
+	log.Errorf("WWW Аутентификация профиля провалилась %s", r.RemoteAddr)
 	w.Header().Set("WWW-Authenticate", "Basic")
 	http.Error(w, "auth req", http.StatusUnauthorized)
 	return nil
@@ -591,13 +637,14 @@ func checkProfileAuth(w http.ResponseWriter, r *http.Request) *profile.Profile {
 func checkAdminAuth(w http.ResponseWriter, r *http.Request) bool {
 
 	user, pass, ok := r.BasicAuth()
+	config := common.GetOptions()
 	if ok {
-		if user == common.Options.AdminLogin && pass == common.Options.AdminPass {
+		if config.AdminPass != "" && subtle.ConstantTimeCompare([]byte(user), []byte(config.AdminLogin)) == 1 && subtle.ConstantTimeCompare([]byte(pass), []byte(config.AdminPass)) == 1 {
 			return true
 		}
 	}
 
-	log.Errorf("WWW Аутентификация провалилась " + r.RemoteAddr)
+	log.Errorf("WWW Аутентификация провалилась %s", r.RemoteAddr)
 	w.Header().Set("WWW-Authenticate", "Basic")
 	http.Error(w, "auth req", http.StatusUnauthorized)
 	return false
@@ -619,16 +666,19 @@ func addMenuAdmin() string {
 func addClientsStatisticsAdmin() string {
 	var webClientsStatistics []WebClientStatistic
 
-	for _, c := range client.GetAllClientsList() {
+	for _, connected := range client.GetAllClientsList() {
+		c := connected.Snapshot()
 		var webClientStatistics WebClientStatistic
 		webClientStatistics.Latitude = c.Coordinates()[0]
 		webClientStatistics.Longitude = c.Coordinates()[1]
 		webClientStatistics.Pid = c.Pid
 		webClientStatistics.Note = "Версия: " + c.Version + "\n" //todo добавить информацию о профиле
 
-		h, _, err := net.SplitHostPort((*c.Conn).RemoteAddr().String())
-		if err == nil {
-			webClientStatistics.Ip = h
+		if c.Conn != nil && *c.Conn != nil {
+			h, _, err := net.SplitHostPort((*c.Conn).RemoteAddr().String())
+			if err == nil {
+				webClientStatistics.Ip = h
+			}
 		}
 
 		webClientsStatistics = append(webClientsStatistics, webClientStatistics)
@@ -644,13 +694,15 @@ func addClientsStatisticsAdmin() string {
 func addAgentsAdmin() string {
 	var webClientsStatistic []WebClientStatistic
 
-	if common.Options.Mode == common.ModeRegular {
+	if common.GetOptions().Mode == common.ModeRegular {
+		locationMutex.RLock()
 		var webClientStatistic WebClientStatistic
 
 		webClientStatistic.Latitude = coordinates[0]
 		webClientStatistic.Longitude = coordinates[1]
 
 		webClientStatistic.Ip = myIp
+		locationMutex.RUnlock()
 		webClientStatistic.Note = "ModeMaster"
 
 		webClientsStatistic = append(webClientsStatistic, webClientStatistic)
@@ -684,6 +736,11 @@ func addConnectionsAdmin() string {
 
 	channels.Range(func(key interface{}, value interface{}) bool {
 		dConn := value.(*dConn)
+		dConn.mutex.RLock()
+		defer dConn.mutex.RUnlock()
+		if dConn.client == nil || dConn.server == nil || dConn.closed {
+			return true
+		}
 
 		var webConnectionStatistic WebConnectionStatistic
 
@@ -697,8 +754,10 @@ func addConnectionsAdmin() string {
 			webConnectionStatistic.Node.Latitude = (*dConn.node).coordinates[0]
 			webConnectionStatistic.Node.Longitude = (*dConn.node).coordinates[1]
 		} else {
+			locationMutex.RLock()
 			webConnectionStatistic.Node.Latitude = coordinates[0]
 			webConnectionStatistic.Node.Longitude = coordinates[1]
+			locationMutex.RUnlock()
 		}
 
 		webConnectionsStatistic = append(webConnectionsStatistic, webConnectionStatistic)

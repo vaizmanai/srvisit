@@ -1,8 +1,16 @@
-.PHONY: windows linux
+.PHONY: all windows linux windows_server linux_server test windows_clean clean
 
-GO111MODULE = on
-GOARCH = amd64
+GOARCH ?= amd64
 BIN_PATH = /opt/srvisit
+
+ifeq ($(OS),Windows_NT)
+SHELL := cmd.exe
+GO_WINDOWS = set "GOOS=windows"&& set "GOARCH=$(GOARCH)"&& set "CGO_ENABLED=0"&&
+GO_LINUX = set "GOOS=linux"&& set "GOARCH=$(GOARCH)"&& set "CGO_ENABLED=0"&&
+else
+GO_WINDOWS = GOOS=windows GOARCH=$(GOARCH) CGO_ENABLED=0
+GO_LINUX = GOOS=linux GOARCH=$(GOARCH) CGO_ENABLED=0
+endif
 
 all: windows linux
 
@@ -11,18 +19,16 @@ windows: windows_server
 linux: linux_server
 
 windows_server:
-	set GOOS = windows
-	go build -o build/server.exe github.com/vaizmanai/srvisit/cmd/server
+	$(GO_WINDOWS) go build -o build/server.exe ./cmd/server
 
 linux_server:
-	set GOOS = linux
-	go build -o build/server github.com/vaizmanai/srvisit/cmd/server
+	$(GO_LINUX) go build -o build/server ./cmd/server
 
-windows_clean:
-	cmd /r del /s /q "*.tmp"; echo ok
-	cmd /r del /s /q "*.txt"; echo ok
-	cmd /r del /s /q "options.json"; echo ok
-	cmd /r del /s /q "profiles.json"; echo ok
+test:
+	go vet ./...
+	go test -timeout 3m ./...
+
+windows_clean: clean
 
 linux_uninstall: linux_stop_master linux_stop
 	systemctl disable srvisit-master; echo ok
@@ -71,4 +77,9 @@ linux_install: linux_install_common
 	systemctl start srvisit
 	make linux_start
 
-clean: windows_clean
+clean:
+ifeq ($(OS),Windows_NT)
+	powershell -NoProfile -Command "Remove-Item -LiteralPath 'build/server.exe','build/server' -Force -ErrorAction SilentlyContinue"
+else
+	rm -f build/server.exe build/server
+endif

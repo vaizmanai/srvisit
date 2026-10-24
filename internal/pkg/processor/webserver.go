@@ -1,7 +1,6 @@
 package processor
 
 import (
-	"fmt"
 	"github.com/gorilla/mux"
 	log "github.com/sirupsen/logrus"
 	"github.com/vaizmanai/srvisit/internal/pkg/api"
@@ -9,10 +8,39 @@ import (
 	"github.com/vaizmanai/srvisit/internal/pkg/common"
 	"net"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 )
 
 func HttpServer() {
+	config := common.GetOptions()
+	myRouter := newRouter()
+	makeServer := func(port string) *http.Server {
+		return &http.Server{
+			Addr: ":" + port, Handler: myRouter,
+			ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 30 * time.Second,
+			WriteTimeout: 30 * time.Second, IdleTimeout: 60 * time.Second,
+			MaxHeaderBytes: 32 << 10,
+		}
+	}
+	if config.HttpServerEnabled {
+		go func() {
+			if err := makeServer(config.HttpServerPort).ListenAndServe(); err != nil {
+				log.Fatalf("webServer: %s", err)
+			}
+		}()
+	}
+	if config.HttpsServerEnabled {
+		go func() {
+			if err := makeServer(config.HttpsServerPort).ListenAndServeTLS(config.HttpsCertPath, config.HttpsKeyPath); err != nil {
+				log.Fatalf("webServer TLS: %s", err)
+			}
+		}()
+	}
+}
+
+func newRouter() http.Handler {
 	myRouter := mux.NewRouter().StrictSlash(true)
 
 	//-----------------------
@@ -29,13 +57,16 @@ func HttpServer() {
 	myRouter.HandleFunc("/profile/welcome", handleProfileWelcome)
 	myRouter.HandleFunc("/profile/my", handleProfileMy)
 
-	myRouter.PathPrefix("/resource").HandlerFunc(handleResource)
+	myRouter.PathPrefix("/resource/").HandlerFunc(handleResource)
 	myRouter.HandleFunc("/api", handleAPI)
 
 	//-----------------------
 
 	apiRouter := myRouter.PathPrefix("/v2/api").Subrouter()
 	apiRouter.Use(handleCORS)
+	apiRouter.PathPrefix("/").Methods(http.MethodOptions).HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	})
 	apiRouter.HandleFunc("/auth", handleAuth).Methods(http.MethodGet, http.MethodPost)
 	apiRouter.Handle("/client", checkAuth(api.HandleGetClient)).Methods(http.MethodGet)
 
@@ -47,21 +78,7 @@ func HttpServer() {
 
 	//-----------------------
 
-	if common.Options.HttpServerEnabled {
-		go func() {
-			if err := http.ListenAndServe(fmt.Sprintf(":%s", common.Options.HttpServerPort), myRouter); err != nil {
-				log.Fatalf("webServer не смог занять порт: %s", err.Error())
-			}
-		}()
-	}
-
-	if common.Options.HttpsServerEnabled {
-		go func() {
-			if err := http.ListenAndServeTLS(fmt.Sprintf(":%s", common.Options.HttpsServerPort), common.Options.HttpsCertPath, common.Options.HttpsKeyPath, myRouter); err != nil {
-				log.Fatalf("webServer не смог занять порт: %s", err.Error())
-			}
-		}()
-	}
+	return myRouter
 }
 
 func checkAuth(f func(w http.ResponseWriter, r *http.Request, client *client.Client)) http.HandlerFunc {
@@ -72,7 +89,7 @@ func checkAuth(f func(w http.ResponseWriter, r *http.Request, client *client.Cli
 			return
 		}
 
-		tokenCookie, err := r.Cookie("abc")
+		tokenCookie, err := r.Cookie("cba")
 		if err != nil {
 			http.Error(w, "unknown user", http.StatusUnauthorized)
 			return
@@ -80,11 +97,8 @@ func checkAuth(f func(w http.ResponseWriter, r *http.Request, client *client.Cli
 
 		list := client.GetClientsList(pidCookie.Value)
 		for _, c := range list {
-			if c.Token == tokenCookie.Value {
-				pidCookie.Expires = time.Now().Add(common.WebSessionTimeoutHour * time.Hour)
-				tokenCookie.Expires = time.Now().Add(common.WebSessionTimeoutHour * time.Hour)
-				http.SetCookie(w, pidCookie)
-				http.SetCookie(w, tokenCookie)
+			if c.MatchesToken(tokenCookie.Value) {
+				setSessionCookies(w, r, pidCookie.Value, tokenCookie.Value)
 				f(w, r, c)
 				return
 			}
@@ -96,18 +110,9 @@ func checkAuth(f func(w http.ResponseWriter, r *http.Request, client *client.Cli
 
 func checkAdmin(f func(w http.ResponseWriter, r *http.Request)) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		user, pass, ok := r.BasicAuth()
-		if ok {
-			if user == common.Options.AdminLogin && pass == common.Options.AdminPass {
-				f(w, r)
-				return
-			}
+		if checkAdminAuth(w, r) {
+			f(w, r)
 		}
-
-		time.Sleep(time.Second)
-		log.Errorf("WWW Аутентификация провалилась %s", r.RemoteAddr)
-		w.Header().Set("WWW-Authenticate", "Basic")
-		http.Error(w, "auth req", http.StatusUnauthorized)
 	}
 }
 
@@ -115,12 +120,11 @@ func handleCORS(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "POST, GET, PUT, DELETE, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Credentials", "true")
 		w.Header().Set("Access-Control-Max-Age", "6400")
 		w.Header().Set("Access-Control-Allow-Headers", "Authorization, X-Requested-With, X-HTTP-Method-Override, Content-Type, Accept")
 
 		if r.Method == http.MethodOptions {
-			_, _ = w.Write([]byte("ok"))
+			w.WriteHeader(http.StatusNoContent)
 			return
 		}
 
@@ -132,25 +136,43 @@ func handleAuth(w http.ResponseWriter, r *http.Request) {
 	pid := r.FormValue("abc")
 	token := r.FormValue("cba")
 	destination := r.FormValue("destination")
+	if destination == "" {
+		destination = "/"
+	}
+	target, err := url.Parse(destination)
+	if err != nil || target.IsAbs() || target.Host != "" || !strings.HasPrefix(destination, "/") || strings.HasPrefix(destination, "//") || strings.ContainsAny(destination, "\\\r\n") {
+		http.Error(w, "invalid destination", http.StatusBadRequest)
+		return
+	}
 
 	log.Infof("trying to auth app %s", pid)
 
 	list := client.GetClientsList(pid)
 	for _, c := range list {
-		if c.Token == token {
-			clientIp, _, _ := net.SplitHostPort((*c.Conn).RemoteAddr().String())
-			webIp, _, _ := net.SplitHostPort(r.RemoteAddr)
-			if webIp != clientIp {
+		state := c.Snapshot()
+		if c.MatchesToken(token) && state.Conn != nil && *state.Conn != nil {
+			clientIp, _, clientErr := net.SplitHostPort((*state.Conn).RemoteAddr().String())
+			webIp, _, webErr := net.SplitHostPort(r.RemoteAddr)
+			if clientErr != nil || webErr != nil || net.ParseIP(webIp) == nil || !net.ParseIP(webIp).Equal(net.ParseIP(clientIp)) {
 				continue
 			}
 
-			cookiePid := http.Cookie{Name: "abc", Value: pid, Expires: time.Now().Add(common.WebSessionTimeoutHour * time.Hour)}
-			cookieToken := http.Cookie{Name: "cba", Value: token, Expires: time.Now().Add(common.WebSessionTimeoutHour * time.Hour)}
-			http.SetCookie(w, &cookiePid)
-			http.SetCookie(w, &cookieToken)
-			http.Redirect(w, r, destination, http.StatusTemporaryRedirect)
+			setSessionCookies(w, r, pid, token)
+			http.Redirect(w, r, destination, http.StatusSeeOther)
 			return
 		}
 	}
 	http.Error(w, "Launch by reVisit, please!", http.StatusUnauthorized)
+}
+
+func setSessionCookies(w http.ResponseWriter, r *http.Request, pid, token string) {
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Referrer-Policy", "no-referrer")
+	for name, value := range map[string]string{"abc": pid, "cba": token} {
+		http.SetCookie(w, &http.Cookie{
+			Name: name, Value: value, Path: "/", HttpOnly: true,
+			Secure: r.TLS != nil, SameSite: http.SameSiteLaxMode,
+			Expires: time.Now().Add(common.WebSessionTimeoutHour * time.Hour),
+		})
+	}
 }

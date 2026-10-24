@@ -107,11 +107,24 @@ func getContactByPid(first *Contact, pid string) *Contact {
 }
 
 func GetContactByPid(first *Contact, pid string) *Contact {
+	pid = common.CleanPid(pid)
 	if first != nil {
 		first.mutex.RLock()
 		defer first.mutex.RUnlock()
 	}
 	return getContactByPid(first, pid)
+}
+
+// Clone makes an independent contact tree. Callers must hold the profile lock.
+func Clone(first *Contact) *Contact {
+	if first == nil {
+		return nil
+	}
+	return &Contact{
+		Id: first.Id, Caption: first.Caption, Type: first.Type,
+		Pid: first.Pid, Digest: first.Digest, Salt: first.Salt,
+		Inner: Clone(first.Inner), Next: Clone(first.Next),
+	}
 }
 
 func getNewId(contact *Contact) int {

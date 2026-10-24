@@ -2,326 +2,259 @@ package processor
 
 import (
 	"bufio"
-	"bytes"
-	"encoding/json"
 	"fmt"
-	log "github.com/sirupsen/logrus"
-	"github.com/vaizmanai/srvisit/internal/pkg/client"
-	"github.com/vaizmanai/srvisit/internal/pkg/common"
+	"io"
 	"net"
 	"runtime/debug"
 	"time"
+
+	log "github.com/sirupsen/logrus"
+	"github.com/vaizmanai/srvisit/internal/pkg/client"
+	"github.com/vaizmanai/srvisit/internal/pkg/common"
 )
 
 func recoverMainServer(conn *net.Conn) {
-	if recover() != nil {
-		log.Errorf("поток mainServer поймал критическую ошибку")
-		debug.PrintStack()
-
-		if conn != nil {
+	if err := recover(); err != nil {
+		log.Errorf("mainServer panic: %v\n%s", err, debug.Stack())
+		if conn != nil && *conn != nil {
 			_ = (*conn).Close()
 		}
 	}
 }
 
 func recoverDataServer(conn *net.Conn) {
-	if recover() != nil {
-		log.Errorf("поток dataServer поймал критическую ошибку")
-		debug.PrintStack()
-
-		if conn != nil {
+	if err := recover(); err != nil {
+		log.Errorf("dataServer panic: %v\n%s", err, debug.Stack())
+		if conn != nil && *conn != nil {
 			_ = (*conn).Close()
 		}
 	}
 }
 
 func MainServer() {
-	log.Infof("mainServer запустился")
-
-	ln, err := net.Listen("tcp", ":"+common.Options.MainServerPort)
+	ln, err := net.Listen("tcp", ":"+common.GetOptions().MainServerPort)
 	if err != nil {
-		log.Errorf("mainServer не смог занять порт")
-		panic(err.Error())
+		log.Fatalf("mainServer: %s", err)
 	}
-
+	defer ln.Close()
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
-			log.Errorf("mainServer не смог занять сокет")
-			break
+			log.Errorf("mainServer accept: %s", err)
+			return
 		}
-
+		conn = &controlConn{Conn: conn}
 		go ping(&conn)
 		go mainHandler(&conn)
 	}
-
-	_ = ln.Close()
-	log.Infof("mainServer остановился")
 }
 
 func mainHandler(conn *net.Conn) {
 	id := common.RandomString(common.MaxLengthIDLog)
-	log.Infof("%s mainServer получил соединение %s", id, (*conn).RemoteAddr())
-
 	defer recoverMainServer(conn)
-
 	var curClient client.Client
-	reader := bufio.NewReader(*conn)
-
-	for {
-		buff, err := reader.ReadBytes('}')
-
-		if err != nil {
-			log.Errorf("%s ошибка чтения буфера", id)
-			break
+	defer func() {
+		_ = (*conn).Close()
+		state := curClient.Snapshot()
+		if state.Profile != nil {
+			client.DelAuthorizedClient(state.Profile.Email, &curClient)
 		}
-
-		log.Debugf("%s buff (%d): %s", id, len(buff), buff)
-
-		//удаляем мусор
-		if buff[0] != '{' {
-			log.Infof("%s mainServer удаляем мусор", id)
-			if bytes.Index(buff, []byte("{")) >= 0 {
-				buff = buff[bytes.Index(buff, []byte("{")):]
-			} else {
-				continue
+		curClient.RemoveClient()
+		if state.Pid != "" && len(client.GetClientsList(state.Pid)) == 0 {
+			for _, p := range client.GetContainedProfileList(state.Pid) {
+				for _, c := range client.GetAuthorizedClientList(p.Email) {
+					sendMessage(c.Snapshot().Conn, TMessStatus, common.CleanPid(state.Pid), "0")
+				}
 			}
+			client.DelContainedProfiles(state.Pid)
 		}
-
-		var message Message
-		err = json.Unmarshal(buff, &message)
+	}()
+	_ = (*conn).SetReadDeadline(time.Now().Add(common.WaitConnection * time.Second))
+	reader := bufio.NewReader(*conn)
+	for {
+		message, err := readMessage(reader)
 		if err != nil {
-			log.Errorf("%s ошибка разбора json", id)
-			time.Sleep(time.Millisecond * common.WaitIdle)
+			return
+		}
+		if message.TMessage < 0 || message.TMessage >= len(Processing) {
+			log.Infof("%s неизвестное сообщение: %d", id, message.TMessage)
 			continue
 		}
-
-		log.Debugf("%s %+v", id, message)
-
-		//обрабатываем полученное сообщение
-		if len(Processing) > message.TMessage {
-			if Processing[message.TMessage].Processing != nil {
-				Processing[message.TMessage].Processing(message, conn, &curClient, id)
-			} else {
-				log.Infof("%s нет обработчика для сообщения %d", id, message.TMessage)
-				time.Sleep(time.Millisecond * common.WaitIdle)
+		if curClient.Snapshot().Pid == "" && message.TMessage != TMessAuth && message.TMessage != TMessVersion && message.TMessage != TMessPing {
+			return
+		}
+		if handler := Processing[message.TMessage].Processing; handler != nil {
+			ok := handler(message, conn, &curClient, id)
+			if message.TMessage == TMessAuth {
+				if !ok {
+					return
+				}
+				_ = (*conn).SetReadDeadline(time.Time{})
 			}
-		} else {
-			log.Infof("%s неизвестное сообщение: %d", id, message.TMessage)
-			time.Sleep(time.Millisecond * common.WaitIdle)
-		}
-
-	}
-	_ = (*conn).Close()
-
-	//удалим связи с профилем
-	if curClient.Profile != nil {
-		client.DelAuthorizedClient(curClient.Profile.Email, &curClient)
-		client.DelContainedProfile(curClient.Pid, curClient.Profile)
-	}
-
-	//пробежимся по профилям где мы есть и отправим новый статус
-	for _, profile := range client.GetContainedProfileList(curClient.Pid) {
-		//все кто авторизовался в этот профиль должен получить новый статус
-		for _, c := range client.GetAuthorizedClientList(profile.Email) {
-			sendMessage(c.Conn, TMessStatus, common.CleanPid(curClient.Pid), "0")
 		}
 	}
-
-	//удалим себя из карты клиентов
-	curClient.RemoveClient()
-
-	log.Infof("%s mainServer потерял соединение с пиром %s", id, (*conn).RemoteAddr())
 }
 
 func DataServer() {
-	log.Infof("dataServer запустился")
-
-	ln, err := net.Listen("tcp", fmt.Sprintf(":%s", common.Options.DataServerPort))
+	ln, err := net.Listen("tcp", ":"+common.GetOptions().DataServerPort)
 	if err != nil {
-		log.Fatalf("dataServer не смог занять порт")
+		log.Fatalf("dataServer: %s", err)
 	}
-
+	defer ln.Close()
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
-			log.Errorf("dataServer не смог занять сокет")
-			break
+			log.Errorf("dataServer accept: %s", err)
+			return
 		}
-
 		go dataHandler(&conn)
 	}
+}
 
-	_ = ln.Close()
-	log.Infof("dataServer остановился")
+type deadlineWriter struct{ net.Conn }
+
+func (writer deadlineWriter) Write(p []byte) (int, error) {
+	if err := writer.SetWriteDeadline(time.Now().Add(common.WriteTimeout * time.Second)); err != nil {
+		return 0, err
+	}
+	return writer.Conn.Write(p)
 }
 
 func dataHandler(conn *net.Conn) {
-	id := common.RandomString(6)
-	log.Infof("%s dataHandler получил соединение %s", id, (*conn).RemoteAddr())
-
 	defer recoverDataServer(conn)
-
-	for {
-		code, err := bufio.NewReader(*conn).ReadString('\n')
-
-		if err != nil {
-			log.Errorf("%s ошибка чтения кода", id)
-			break
-		}
-
-		code = code[:len(code)-1]
-		value, exist := channels.Load(code)
-		if exist == false {
-			log.Errorf("%s не ожидаем такого кода", id)
-			break
-		}
-
-		peers := value.(*dConn)
-		peers.mutex.Lock()
-		var numPeer int
-		if peers.pointer[0] == nil {
-			peers.pointer[0] = conn
-			numPeer = 1
-
-			if common.Options.Mode == common.ModeRegular {
-				//отправим запрос принимающей стороне
-				if !sendMessage(peers.client.Conn, TMessConnect, "", "", code, "simple", "client", peers.server.Pid, peers.address) {
-					log.Errorf("%s не смогли отправить запрос принимающей стороне", id)
-				}
-			} else { //options.mode == ModeNode
-				sendMessageToMaster(TMessAgentNewConn, code) //оповестим мастер о том что мы дождались транслятор
-			}
-
-		} else if peers.pointer[1] == nil {
-			peers.pointer[1] = conn
-			numPeer = 0
-		}
-		peers.mutex.Unlock()
-
-		var cWait = 0
-		for peers.pointer[numPeer] == nil && cWait < common.WaitCount {
-			log.Infof("%s ожидаем пира для %s", id, code)
-			time.Sleep(time.Millisecond * common.WaitIdle)
-			cWait++
-		}
-
-		if peers.pointer[numPeer] == nil {
-			log.Errorf("%s превышено время ожидания", id)
-			disconnectPeers(code)
-			break
-		}
-
-		log.Infof("%s пир существует для %s", id, code)
-		time.Sleep(time.Millisecond * common.WaitAfterConnect)
-
-		var z []byte
-		z = make([]byte, common.Options.SizeBuff)
-
-		var countBytes uint64
-		var n1, n2 int
-		var err1, err2 error
-
-		for {
-			n1, err1 = (*conn).Read(z)
-
-			if peers.pointer[numPeer] == nil {
-				log.Infof("%s потеряли пир", id)
-				time.Sleep(time.Millisecond * common.WaitAfterConnect)
-				break
-			}
-
-			err := (*peers.pointer[numPeer]).SetWriteDeadline(time.Now().Add(time.Second * common.WriteTimeout))
-			if err != nil {
-				log.Infof("%s не получилось установит таймаут", id)
-				break
-			}
-			n2, err2 = (*peers.pointer[numPeer]).Write(z[:n1])
-
-			countBytes = countBytes + uint64(n1+n2)
-
-			if err1 != nil || err2 != nil || n1 == 0 || n2 == 0 {
-				log.Infof("%s соединение закрылось: %d %d", id, n1, n2)
-				log.Infof("%s err1: %v", id, err1)
-				log.Infof("%s err2: %v", id, err2)
-				time.Sleep(time.Millisecond * common.WaitAfterConnect)
-				if peers.pointer[numPeer] != nil {
-					_ = (*peers.pointer[numPeer]).Close()
-				}
-				break
-			}
-		}
-
-		common.AddCounter(countBytes)
-		if common.Options.Mode == common.ModeNode {
-			sendMessageToMaster(TMessAgentAddBytes, fmt.Sprint(countBytes))
-		}
-
-		log.Infof("%s поток завершается", id)
-		disconnectPeers(code)
-		break
+	defer (*conn).Close()
+	_ = (*conn).SetReadDeadline(time.Now().Add(common.WaitConnection * time.Second))
+	reader := bufio.NewReader(*conn)
+	line, err := reader.ReadSlice('\n')
+	if err != nil || len(line) <= 1 || len(line) > common.CodeLength+1 {
+		return
 	}
-	_ = (*conn).Close()
-	log.Infof("%s dataHandler потерял соединение", id)
+	code := string(line[:len(line)-1])
+	value, exists := channels.Load(code)
+	if !exists {
+		return
+	}
+	peers := value.(*dConn)
+	peers.mutex.Lock()
+	if peers.closed || peers.pointer[1] != nil {
+		peers.mutex.Unlock()
+		return
+	}
+	index := 0
+	if peers.pointer[0] != nil {
+		index = 1
+	}
+	peers.pointer[index] = conn
+	if index == 1 {
+		close(peers.ready)
+	}
+	peers.mutex.Unlock()
+	defer disconnectPair(code, peers)
+	_ = (*conn).SetReadDeadline(time.Time{})
+
+	config := common.GetOptions()
+	if index == 0 {
+		if config.Mode == common.ModeRegular {
+			if peers.client == nil || peers.server == nil || !sendMessage(peers.client.Snapshot().Conn, TMessConnect, "", "", code, "simple", "client", peers.server.Snapshot().Pid, peers.address) {
+				return
+			}
+		} else {
+			sendMessageToMaster(TMessAgentNewConn, code)
+		}
+	}
+	timer := time.NewTimer(common.WaitCount * common.WaitIdle * time.Millisecond)
+	defer timer.Stop()
+	select {
+	case <-peers.ready:
+	case <-timer.C:
+		return
+	}
+	peers.mutex.RLock()
+	other, closed := peers.pointer[1-index], peers.closed
+	peers.mutex.RUnlock()
+	if closed || other == nil {
+		return
+	}
+	// Keep using reader: the code and VNC payload can arrive in one TCP packet.
+	n, err := io.CopyBuffer(deadlineWriter{*other}, reader, make([]byte, config.SizeBuff))
+	if err != nil {
+		log.Debugf("dataServer copy: %s", err)
+	}
+	count := uint64(n) * 2
+	common.AddCounter(count)
+	if config.Mode == common.ModeNode {
+		sendMessageToMaster(TMessAgentAddBytes, fmt.Sprint(count))
+	}
 }
 
 func disconnectPeers(code string) {
-	value, exists := channels.Load(code)
-	if exists {
-		channels.Delete(code)
-		pair := value.(*dConn)
-
-		if common.Options.Mode != common.ModeMaster {
-			if pair.pointer[0] != nil {
-				_ = (*pair.pointer[0]).Close()
-			}
-			if pair.pointer[1] != nil {
-				_ = (*pair.pointer[1]).Close()
-			}
-		}
-		if common.Options.Mode == common.ModeMaster {
-			sendMessageToNodes(TMessAgentDelCode, code)
-		}
-		if common.Options.Mode == common.ModeNode {
-			sendMessageToMaster(TMessAgentDelCode, code)
-		}
-
-		pair.client = nil
-		pair.server = nil
+	if value, exists := channels.Load(code); exists {
+		disconnectPair(code, value.(*dConn))
 	}
 }
 
-func connectPeers(code string, client *client.Client, server *client.Client, address string) {
-	var newConnection dConn
-	channels.Store(code, &newConnection)
-	newConnection.client = client
-	newConnection.server = server
-	newConnection.address = address
+func disconnectPair(code string, pair *dConn) {
+	if !channels.CompareAndDelete(code, pair) {
+		return
+	}
+	pair.mutex.Lock()
+	pair.closed = true
+	connections := pair.pointer
+	if connections[0] == nil || connections[1] == nil {
+		close(pair.ready)
+	}
+	pair.mutex.Unlock()
+	for _, conn := range connections {
+		if conn != nil {
+			_ = (*conn).Close()
+		}
+	}
+	switch common.GetOptions().Mode {
+	case common.ModeMaster:
+		sendMessageToNodes(TMessAgentDelCode, code)
+	case common.ModeNode:
+		sendMessageToMaster(TMessAgentDelCode, code)
+	}
+}
 
-	go checkConnection(&newConnection, code) //может случиться так, что код сохранили, а никто не подключился
-
-	if common.Options.Mode == common.ModeMaster {
+func connectPeers(code string, receiving *client.Client, sending *client.Client, address string) {
+	connection := &dConn{client: receiving, server: sending, address: address, ready: make(chan struct{})}
+	if _, loaded := channels.LoadOrStore(code, connection); loaded {
+		return
+	}
+	go checkConnection(connection, code)
+	if common.GetOptions().Mode == common.ModeMaster {
 		sendMessageToNodes(TMessAgentAddCode, code)
 	}
 }
 
 func checkConnection(connection *dConn, code string) {
-	time.Sleep(time.Second * common.WaitConnection)
-
-	if common.Options.Mode != common.ModeNode {
-		if connection.node == nil && connection.pointer[0] == nil && connection.pointer[1] == nil {
-			log.Errorf("таймаут ожидания соединений для %s", code)
-			if connection.client != nil {
-				if connection.client.GreaterVersionThan(common.MinimalVersionForStaticAlert) {
-					sendMessage(connection.client.Conn, TMessStandardAlert, fmt.Sprint(common.StaticMessageTimeoutError))
-				}
-			}
-			disconnectPeers(code)
-		}
-	} else {
-		if (connection.pointer[0] != nil && connection.pointer[1] == nil) || (connection.pointer[0] == nil && connection.pointer[1] != nil) {
-			log.Errorf("таймаут ожидания соединений для %s", code)
-			disconnectPeers(code)
-		}
+	timer := time.NewTimer(common.WaitConnection * time.Second)
+	defer timer.Stop()
+	select {
+	case <-connection.ready:
+		return
+	case <-timer.C:
 	}
+	connection.mutex.RLock()
+	expired := !connection.closed && connection.node == nil && (connection.pointer[0] == nil || connection.pointer[1] == nil)
+	unused := connection.pointer[0] == nil && connection.pointer[1] == nil
+	connection.mutex.RUnlock()
+	if !expired {
+		return
+	}
+	if common.GetOptions().Mode == common.ModeNode && unused {
+		// Other nodes received this code too; an unused copy must not end their session.
+		connection.mutex.Lock()
+		if connection.pointer[0] == nil && channels.CompareAndDelete(code, connection) {
+			connection.closed = true
+			close(connection.ready)
+		}
+		connection.mutex.Unlock()
+		return
+	}
+	if connection.client != nil && connection.client.GreaterVersionThan(common.MinimalVersionForStaticAlert) {
+		sendMessage(connection.client.Snapshot().Conn, TMessStandardAlert, fmt.Sprint(common.StaticMessageTimeoutError))
+	}
+	disconnectPair(code, connection)
 }

@@ -1,6 +1,7 @@
 package common
 
 import (
+	"fmt"
 	log "github.com/sirupsen/logrus"
 	"sync"
 	"time"
@@ -61,10 +62,12 @@ const (
 	WriteTimeout     = 13
 
 	ProfilesFilename = "profiles.json"
+	MaxBufferSize    = 1 << 20
 )
 
 var (
-	Options = options{
+	optionsMutex sync.RWMutex
+	options      = Config{
 		MainServerPort:                "65471",
 		DataServerPort:                "65475",
 		HttpServerEnabled:             true,
@@ -75,45 +78,46 @@ var (
 		HttpsKeyPath:                  "key.pem",
 		SizeBuff:                      16000,
 		AdminLogin:                    "admin",
-		AdminPass:                     "admin",
+		AdminPass:                     RandomString(24),
 		Mode:                          ModeRegular,
 		MyCoordinates:                 [2]float64{0, 0},
 		MasterServer:                  "data.rvisit.net",
 		MasterPort:                    "65470",
-		MasterPassword:                "master",
+		MasterPassword:                RandomString(32),
 		LogLevel:                      log.DebugLevel,
 		IpCoordinateCacheTimeoutHours: 48,
 	}
 
 	//counterData считаем всякую бесполезную информацию или нет, todo заменить на prometheus
-	counterData struct {
-		currentPos time.Time
-
-		CounterBytes       [24]uint64
-		CounterConnections [24]uint64
-		CounterClients     [24]uint64
-
-		CounterDayWeekBytes       [7]uint64
-		CounterDayWeekConnections [7]uint64
-		CounterDayWeekClients     [7]uint64
-
-		CounterDayBytes       [31]uint64
-		CounterDayConnections [31]uint64
-		CounterDayClients     [31]uint64
-
-		CounterDayYearBytes       [366]uint64
-		CounterDayYearConnections [366]uint64
-		CounterDayYearClients     [366]uint64
-
-		CounterMonthBytes       [12]uint64
-		CounterMonthConnections [12]uint64
-		CounterMonthClients     [12]uint64
-
-		mutex sync.Mutex
-	}
+	counterData  = counters{currentPos: time.Now()}
+	counterMutex sync.Mutex
 )
 
-type options struct {
+type counters struct {
+	currentPos time.Time
+
+	CounterBytes       [24]uint64
+	CounterConnections [24]uint64
+	CounterClients     [24]uint64
+
+	CounterDayWeekBytes       [7]uint64
+	CounterDayWeekConnections [7]uint64
+	CounterDayWeekClients     [7]uint64
+
+	CounterDayBytes       [31]uint64
+	CounterDayConnections [31]uint64
+	CounterDayClients     [31]uint64
+
+	CounterDayYearBytes       [366]uint64
+	CounterDayYearConnections [366]uint64
+	CounterDayYearClients     [366]uint64
+
+	CounterMonthBytes       [12]uint64
+	CounterMonthConnections [12]uint64
+	CounterMonthClients     [12]uint64
+}
+
+type Config struct {
 	//настройки smtp сервера
 	ServerSMTP string
 	PortSMTP   string
@@ -213,14 +217,36 @@ type YandexBody struct {
 	Type              string  `json:"type"`
 }
 
-func SaveOptions() {
-	if err := SaveFile(FileOptions, &Options); err != nil {
-		log.Errorf("saving options: %s", err.Error())
-	}
+func GetOptions() Config {
+	optionsMutex.RLock()
+	defer optionsMutex.RUnlock()
+	return options
 }
 
-func LoadOptions() {
-	if err := LoadFile(FileOptions, &Options); err != nil {
-		log.Errorf("loading options: %s", err.Error())
+func SetOptions(config Config) error {
+	if config.SizeBuff <= 0 || config.SizeBuff > MaxBufferSize {
+		return fmt.Errorf("buffer size must be between 1 and %d", MaxBufferSize)
 	}
+	if config.Mode < ModeRegular || config.Mode > ModeNode {
+		return fmt.Errorf("invalid server mode: %d", config.Mode)
+	}
+	if config.IpCoordinateCacheTimeoutHours < 0 {
+		return fmt.Errorf("coordinate cache timeout must not be negative")
+	}
+	optionsMutex.Lock()
+	options = config
+	optionsMutex.Unlock()
+	return nil
+}
+
+func SaveOptions() error {
+	return SaveFile(FileOptions, GetOptions())
+}
+
+func LoadOptions() error {
+	config := GetOptions()
+	if err := LoadFile(FileOptions, &config); err != nil {
+		return err
+	}
+	return SetOptions(config)
 }

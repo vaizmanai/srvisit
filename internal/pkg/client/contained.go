@@ -28,10 +28,16 @@ func DelContainedProfile(pid string, p *profile.Profile) {
 	pid = common.CleanPid(pid)
 
 	containedMutex.Lock()
-	if contained[pid] == nil {
-		contained[pid] = make(map[string]*profile.Profile)
-	}
 	delete(contained[pid], p.Email)
+	if len(contained[pid]) == 0 {
+		delete(contained, pid)
+	}
+	containedMutex.Unlock()
+}
+
+func DelContainedProfiles(pid string) {
+	containedMutex.Lock()
+	delete(contained, common.CleanPid(pid))
 	containedMutex.Unlock()
 }
 

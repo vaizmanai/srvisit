@@ -2,348 +2,231 @@ package processor
 
 import (
 	"bufio"
-	"bytes"
-	"encoding/json"
 	"fmt"
-	log "github.com/sirupsen/logrus"
-	"github.com/vaizmanai/srvisit/internal/pkg/common"
 	"net"
 	"os"
 	"strconv"
 	"strings"
 	"time"
+
+	log "github.com/sirupsen/logrus"
+	"github.com/vaizmanai/srvisit/internal/pkg/common"
 )
 
 func MasterServer() {
-	log.Infof("masterServer запустился")
-
-	ln, err := net.Listen("tcp", fmt.Sprintf(":%s", common.Options.MasterPort))
+	ln, err := net.Listen("tcp", ":"+common.GetOptions().MasterPort)
 	if err != nil {
-		log.Errorf("masterServer не смог занять порт")
-		os.Exit(1)
+		log.Fatalf("masterServer: %s", err)
 	}
-
+	defer ln.Close()
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
-			log.Errorf("masterServer не смог занять сокет")
-			break
+			log.Errorf("masterServer accept: %s", err)
+			return
 		}
-
+		conn = &controlConn{Conn: conn}
 		go ping(&conn)
 		go masterHandler(&conn)
 	}
-
-	_ = ln.Close()
-	log.Infof("masterServer остановился")
 }
 
 func masterHandler(conn *net.Conn) {
 	id := common.RandomString(common.MaxLengthIDLog)
-	log.Infof("%s masterServer получил соединение", id)
-
 	var curNode Node
-
-	reader := bufio.NewReader(*conn)
-
-	for {
-		buff, err := reader.ReadBytes('}')
-
-		if err != nil {
-			log.Errorf("%s ошибка чтения буфера", id)
-			break
+	defer recoverMainServer(conn)
+	defer func() {
+		_ = (*conn).Close()
+		if curNode.Id == "" {
+			return
 		}
-
-		log.Debugf("%s buff (%d): %s", id, len(buff), buff)
-
-		//удаляем мусор
-		if buff[0] != '{' {
-			log.Infof("%s masterServer удаляем мусор", id)
-			if bytes.Index(buff, []byte("{")) >= 0 {
-				buff = buff[bytes.Index(buff, []byte("{")):]
-			} else {
-				continue
-			}
-		}
-
-		var message Message
-		err = json.Unmarshal(buff, &message)
-		if err != nil {
-			log.Errorf("%s ошибка разбора json", id)
-			time.Sleep(time.Millisecond * common.WaitIdle)
-			continue
-		}
-
-		log.Debugf("%s %+v", id, message)
-
-		//обрабатываем полученное сообщение
-		if len(ProcessingAgent) > message.TMessage {
-			if ProcessingAgent[message.TMessage].Processing != nil {
-				go ProcessingAgent[message.TMessage].Processing(message, conn, &curNode, id) //от одного агента может много приходить сообщений, не тормозим их
-			} else {
-				log.Infof("%s нет обработчика для сообщения %d", id, message.TMessage)
-				time.Sleep(time.Millisecond * common.WaitIdle)
-			}
-		} else {
-			log.Infof("%s неизвестное сообщение: %d", id, message.TMessage)
-			time.Sleep(time.Millisecond * common.WaitIdle)
-		}
-
-	}
-	(*conn).Close()
-
-	//если есть id значит скорее всего есть в карте
-	if len(curNode.Id) != 0 {
 		nodes.Delete(curNode.Id)
 		sendMessageToAllClients(TMessServers, fmt.Sprint(false), curNode.Ip)
-	}
-
-	//удалим все сессии связанные с этим агентом
-	channels.Range(func(key interface{}, value interface{}) bool {
-		dConn := value.(*dConn)
-		if dConn.node == &curNode {
-			channels.Delete(key)
+		channels.Range(func(key, value interface{}) bool {
+			pair := value.(*dConn)
+			pair.mutex.RLock()
+			owned := pair.node == &curNode
+			pair.mutex.RUnlock()
+			if owned {
+				disconnectPair(key.(string), pair)
+			}
+			return true
+		})
+	}()
+	_ = (*conn).SetReadDeadline(time.Now().Add(common.WaitConnection * time.Second))
+	reader := bufio.NewReader(*conn)
+	for {
+		message, err := readMessage(reader)
+		if err != nil {
+			return
 		}
-		return true
-	})
-
-	log.Infof("%s masterServer потерял соединение с агентом", id)
+		if message.TMessage < 0 || message.TMessage >= len(ProcessingAgent) {
+			continue
+		}
+		if curNode.Id == "" && message.TMessage != TMessAgentAuth && message.TMessage != TMessAgentPing {
+			return
+		}
+		if message.TMessage == TMessAgentAuth && curNode.Id != "" {
+			return
+		}
+		if handler := ProcessingAgent[message.TMessage].Processing; handler != nil {
+			// Preserve command order, including authorization and session creation.
+			handler(message, conn, &curNode, id)
+			if message.TMessage == TMessAgentAuth {
+				if curNode.Id == "" {
+					return
+				}
+				_ = (*conn).SetReadDeadline(time.Time{})
+			}
+		}
+	}
 }
 
 func NodeClient() {
-
-	log.Infof("nodeClient запустился")
-
 	for {
-		conn, err := net.Dial("tcp", fmt.Sprintf("%s:%s", common.Options.MasterServer, common.Options.MasterPort))
+		config := common.GetOptions()
+		raw, err := net.DialTimeout("tcp", net.JoinHostPort(config.MasterServer, config.MasterPort), common.WaitConnection*time.Second)
 		if err != nil {
-			log.Errorf("nodeClient не смог подключиться: %s", err.Error())
-			time.Sleep(time.Second * common.WaitIdleAgent)
+			log.Errorf("nodeClient connect: %s", err)
+			time.Sleep(common.WaitIdleAgent * time.Second)
 			continue
 		}
-
+		var conn net.Conn = &controlConn{Conn: raw}
+		masterMutex.Lock()
 		master = &conn
-
-		hostname, err := os.Hostname()
-		if err != nil {
-			hostname = common.RandomString(common.MaxLengthIDNode)
-		}
-		if len(common.Options.Hostname) > 0 {
-			hostname = common.Options.Hostname
-		}
-		sendMessage(&conn, TMessAgentAuth, hostname, common.Options.MasterPassword, common.WhitelabelVersion, fmt.Sprintf("%f;%f", coordinates[0], coordinates[1]))
-
-		go ping(&conn)
-
-		reader := bufio.NewReader(conn)
-		for {
-			buff, err := reader.ReadBytes('}')
-
+		masterMutex.Unlock()
+		hostname := config.Hostname
+		if hostname == "" {
+			hostname, err = os.Hostname()
 			if err != nil {
-				log.Errorf("nodeClient ошибка чтения буфера: %s", err.Error())
-				break
+				hostname = common.RandomString(common.MaxLengthIDNode)
 			}
-
-			log.Debugf("buff (%d): %s", len(buff), buff)
-
-			//удаляем мусор
-			if buff[0] != '{' {
-				log.Infof("nodeClient удаляем мусор")
-				if bytes.Index(buff, []byte("{")) >= 0 {
-					log.Debugf("buff (%d): %s", len(buff), buff)
-					buff = buff[bytes.Index(buff, []byte("{")):]
-				} else {
-					continue
-				}
-			}
-
-			var message Message
-			err = json.Unmarshal(buff, &message)
-			if err != nil {
-				log.Errorf("nodeClient ошибка разбора json: %s", err.Error())
-				time.Sleep(time.Millisecond * common.WaitIdle)
-				continue
-			}
-
-			log.Debugf("%+v", message)
-
-			//обрабатываем полученное сообщение
-			if len(ProcessingAgent) > message.TMessage {
-				if ProcessingAgent[message.TMessage].Processing != nil {
-					go ProcessingAgent[message.TMessage].Processing(message, &conn, nil, common.RandomString(common.MaxLengthIDLog))
-				} else {
-					log.Infof("nodeClient нет обработчика для сообщения")
-					time.Sleep(time.Millisecond * common.WaitIdle)
-				}
-			} else {
-				log.Infof("nodeClient неизвестное сообщение: %d", message.TMessage)
-				time.Sleep(time.Millisecond * common.WaitIdle)
-			}
-
 		}
-		conn.Close()
+		locationMutex.RLock()
+		position := coordinates
+		locationMutex.RUnlock()
+		_ = conn.SetReadDeadline(time.Now().Add(common.WaitConnection * time.Second))
+		if sendMessage(&conn, TMessAgentAuth, hostname, config.MasterPassword, common.WhitelabelVersion, fmt.Sprintf("%f;%f", position[0], position[1])) {
+			go ping(&conn)
+			nodeReadLoop(&conn)
+		}
+		_ = conn.Close()
+		masterMutex.Lock()
+		if master == &conn {
+			master = nil
+		}
+		masterMutex.Unlock()
+		time.Sleep(common.WaitIdleAgent * time.Second)
 	}
+}
 
-	//log.Infof("nodeClient остановился") //недостижимо???
+func nodeReadLoop(conn *net.Conn) {
+	reader := bufio.NewReader(*conn)
+	authorized := false
+	for {
+		message, err := readMessage(reader)
+		if err != nil {
+			return
+		}
+		if message.TMessage < 0 || message.TMessage >= len(ProcessingAgent) {
+			continue
+		}
+		if message.TMessage == TMessAgentAuth {
+			if authorized || len(message.Messages) != 1 || message.Messages[0] == "" {
+				return
+			}
+			authorized = true
+			_ = (*conn).SetReadDeadline(time.Time{})
+			continue
+		}
+		if !authorized && message.TMessage != TMessAgentPing {
+			return
+		}
+		if handler := ProcessingAgent[message.TMessage].Processing; handler != nil {
+			handler(message, conn, nil, common.RandomString(common.MaxLengthIDLog))
+		}
+	}
 }
 
 func processAgentAuth(message Message, conn *net.Conn, curNode *Node, id string) {
-	log.Infof("%s пришла авторизация агента", id)
-
-	if common.Options.Mode == common.ModeRegular {
-		log.Errorf("%s режим не поддерживающий агентов", id)
-		(*conn).Close()
+	config := common.GetOptions()
+	if config.Mode != common.ModeMaster || curNode == nil || len(message.Messages) < 3 || message.Messages[2] != common.WhitelabelVersion || message.Messages[1] != config.MasterPassword {
+		_ = (*conn).Close()
 		return
 	}
-
-	if common.Options.Mode == common.ModeNode {
-		log.Infof("%s пришел ответ на авторизацию", id)
-		return
-	}
-
-	time.Sleep(time.Millisecond * common.WaitIdle)
-
-	if len(message.Messages) < 3 {
-		log.Errorf("%s не правильное кол-во полей", id)
-		(*conn).Close()
-		return
-	}
-
-	if message.Messages[2] != common.WhitelabelVersion {
-		log.Errorf("%s не совместимая версия", id)
-		(*conn).Close()
-		return
-	}
-
-	if message.Messages[1] != common.Options.MasterPassword {
-		log.Errorf("%s не правильный пароль", id)
-		(*conn).Close()
-		return
-	}
-
+	curNode.Conn, curNode.Name = conn, message.Messages[0]
+	curNode.Ip, _, _ = net.SplitHostPort((*conn).RemoteAddr().String())
 	if len(message.Messages) > 3 {
-		c := strings.Split(message.Messages[3], ";")
-		if len(c) == 2 {
-			c0, err := strconv.ParseFloat(c[0], 64)
-			if err == nil {
-				curNode.coordinates[0] = c0
-			}
-			c1, err := strconv.ParseFloat(c[1], 64)
-			if err == nil {
-				curNode.coordinates[1] = c1
-			}
+		parts := strings.Split(message.Messages[3], ";")
+		if len(parts) == 2 {
+			curNode.coordinates[0], _ = strconv.ParseFloat(parts[0], 64)
+			curNode.coordinates[1], _ = strconv.ParseFloat(parts[1], 64)
 		}
 	} else {
-		//получим координаты по ip
-		go func() {
-			curNode.coordinates = common.GetCoordinatesByYandex(curNode.Ip)
-		}()
+		curNode.coordinates = common.GetCoordinatesByYandex(curNode.Ip)
 	}
-
-	curNode.Conn = conn
-	curNode.Name = message.Messages[0]
 	curNode.Id = common.RandomString(common.MaxLengthIDNode)
-
-	h, _, err := net.SplitHostPort((*conn).RemoteAddr().String())
-	if err == nil {
-		curNode.Ip = h
+	if !sendMessage(conn, TMessAgentAuth, curNode.Id) {
+		curNode.Id = ""
+		return
 	}
-
-	if sendMessage(conn, TMessAgentAuth, curNode.Id) {
-		nodes.Store(curNode.Id, curNode)
-		log.Infof("%s авторизация агента успешна", id)
-	}
-
+	nodes.Store(curNode.Id, curNode)
 	sendMessageToAllClients(TMessServers, fmt.Sprint(true), curNode.Ip)
 }
 
-func processAgentAddCode(message Message, conn *net.Conn, curNode *Node, id string) {
-	if common.Options.Mode != common.ModeNode {
-		log.Errorf("%s режим не поддерживающий агентов", id)
-		return
-	}
-
-	log.Infof("%s пришла информация о создании сессии", id)
-
-	if len(message.Messages) != 1 {
-		log.Errorf("%s не правильное кол-во полей", id)
-		return
-	}
-
-	connectPeers(message.Messages[0], nil, nil, "")
-}
-
-func processAgentDelCode(message Message, conn *net.Conn, curNode *Node, id string) {
-	if common.Options.Mode == common.ModeRegular {
-		log.Errorf("%s режим не поддерживающий агентов", id)
-		return
-	}
-
-	log.Infof("%s пришла информация об удалении сессии", id)
-
-	if len(message.Messages) != 1 {
-		log.Errorf("%s не правильное кол-во полей", id)
-		return
-	}
-
-	disconnectPeers(message.Messages[0])
-}
-
-func processAgentAddBytes(message Message, conn *net.Conn, curNode *Node, id string) {
-	if common.Options.Mode != common.ModeMaster {
-		log.Errorf("%s режим не поддерживающий агентов", id)
-		return
-	}
-
-	log.Infof("%s пришла информация статистики", id)
-
-	if len(message.Messages) != 1 {
-		log.Errorf("%s не правильное кол-во полей", id)
-		return
-	}
-
-	count, err := strconv.Atoi(message.Messages[0])
-	if err == nil {
-		common.AddCounter(uint64(count))
+func processAgentAddCode(message Message, _ *net.Conn, _ *Node, _ string) {
+	if common.GetOptions().Mode == common.ModeNode && len(message.Messages) == 1 && len(message.Messages[0]) > 0 && len(message.Messages[0]) <= common.CodeLength {
+		connectPeers(message.Messages[0], nil, nil, "")
 	}
 }
 
-func sendMessageToNodes(TMessage int, Messages ...string) {
-	nodes.Range(func(key interface{}, value interface{}) bool {
-		node := value.(*Node)
-		return sendMessage(node.Conn, TMessage, Messages...)
+func processAgentDelCode(message Message, _ *net.Conn, _ *Node, _ string) {
+	if common.GetOptions().Mode != common.ModeRegular && len(message.Messages) == 1 {
+		disconnectPeers(message.Messages[0])
+	}
+}
+
+func processAgentAddBytes(message Message, _ *net.Conn, _ *Node, _ string) {
+	if common.GetOptions().Mode != common.ModeMaster || len(message.Messages) != 1 {
+		return
+	}
+	if count, err := strconv.ParseUint(message.Messages[0], 10, 64); err == nil {
+		common.AddCounter(count)
+	}
+}
+
+func sendMessageToNodes(kind int, messages ...string) {
+	nodes.Range(func(_, value interface{}) bool {
+		sendMessage(value.(*Node).Conn, kind, messages...)
+		return true
 	})
 }
 
-func sendMessageToMaster(TMessage int, Messages ...string) {
-	sendMessage(master, TMessage, Messages...)
+func sendMessageToMaster(kind int, messages ...string) {
+	masterMutex.RLock()
+	conn := master
+	masterMutex.RUnlock()
+	sendMessage(conn, kind, messages...)
 }
 
-func processAgentNewConn(message Message, conn *net.Conn, curNode *Node, id string) {
-	if common.Options.Mode != common.ModeMaster {
-		log.Errorf("%s режим не поддерживающий агентов", id)
+func processAgentNewConn(message Message, _ *net.Conn, curNode *Node, _ string) {
+	if common.GetOptions().Mode != common.ModeMaster || curNode == nil || len(message.Messages) != 1 {
 		return
 	}
-
-	log.Infof("%s пришла информация о том что агент получил соединение", id)
-
-	if len(message.Messages) != 1 {
-		log.Errorf("%s не правильное кол-во полей", id)
-		return
-	}
-
 	code := message.Messages[0]
 	value, exists := channels.Load(code)
-	if exists {
-		peers := value.(*dConn)
-		peers.node = curNode
-		//отправим запрос принимающей стороне
-		if !sendMessage(peers.client.Conn, TMessConnect, "", "", code, "simple", "client", peers.server.Pid, peers.address) {
-			log.Errorf("%s не смогли отправить запрос принимающей стороне", id)
-		}
+	if !exists {
+		return
 	}
+	peers := value.(*dConn)
+	peers.mutex.Lock()
+	if peers.closed || peers.node != nil || peers.client == nil || peers.server == nil {
+		peers.mutex.Unlock()
+		return
+	}
+	peers.node = curNode
+	peers.mutex.Unlock()
+	sendMessage(peers.client.Snapshot().Conn, TMessConnect, "", "", code, "simple", "client", peers.server.Snapshot().Pid, peers.address)
 }
 
-func processAgentPing(_ Message, _ *net.Conn, _ *Node, _ string) {
-	//log.Infof("%s пришел пинг", id)
-}
+func processAgentPing(_ Message, _ *net.Conn, _ *Node, _ string) {}

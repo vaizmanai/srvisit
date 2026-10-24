@@ -1,7 +1,7 @@
 # Server Communicator for reVisit
 [![Go Report Card](https://goreportcard.com/badge/github.com/vaizmanai/srvisit)](https://goreportcard.com/report/github.com/vaizmanai/srvisit)
 [![codecov](https://codecov.io/gh/vaizmanai/srvisit/branch/master/graph/badge.svg)](https://codecov.io/gh/vaizmanai/srvisit)
-[![Build Status](https://travis-ci.org/vaizmanai/srvisit.svg?branch=master)](https://travis-ci.org/vaizmanai/srvisit)
+[![Go](https://github.com/vaizmanai/srvisit/actions/workflows/go.yml/badge.svg)](https://github.com/vaizmanai/srvisit/actions/workflows/go.yml)
 
 ## Notes
 

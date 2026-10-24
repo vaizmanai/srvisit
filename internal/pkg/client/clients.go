@@ -1,6 +1,7 @@
 package client
 
 import (
+	"crypto/subtle"
 	"github.com/vaizmanai/srvisit/internal/pkg/common"
 	"github.com/vaizmanai/srvisit/internal/pkg/profile"
 	"net"
@@ -33,10 +34,16 @@ type Client struct {
 }
 
 func (client *Client) StoreClient() {
-	pid := common.CleanPid(client.Pid)
+	pid := common.CleanPid(client.Snapshot().Pid)
 	clientsMutex.Lock()
 
 	list := clients[pid]
+	for _, existing := range list {
+		if existing == client {
+			clientsMutex.Unlock()
+			return
+		}
+	}
 	if list == nil {
 		list = make([]*Client, 0)
 	}
@@ -49,7 +56,7 @@ func (client *Client) StoreClient() {
 }
 
 func (client *Client) RemoveClient() {
-	pid := common.CleanPid(client.Pid)
+	pid := common.CleanPid(client.Snapshot().Pid)
 	clientsMutex.Lock()
 
 	list := clients[pid]
@@ -69,7 +76,11 @@ func (client *Client) RemoveClient() {
 			i++
 		}
 	}
-	clients[pid] = list
+	if len(list) == 0 {
+		delete(clients, pid)
+	} else {
+		clients[pid] = list
+	}
 
 	clientsMutex.Unlock()
 }
@@ -78,13 +89,48 @@ func GetClientsList(pid string) []*Client {
 	pid = common.CleanPid(pid)
 
 	clientsMutex.RLock()
-	list := clients[pid]
-	if list == nil {
-		list = make([]*Client, 0)
-	}
+	list := append([]*Client{}, clients[pid]...)
 
 	clientsMutex.RUnlock()
 	return list
+}
+
+// Snapshot returns a copy of the connection state without copying its mutex.
+func (client *Client) Snapshot() *Client {
+	client.mutex.RLock()
+	defer client.mutex.RUnlock()
+	return &Client{
+		Serial: client.Serial, Pid: client.Pid, Pass: client.Pass,
+		Version: client.Version, Salt: client.Salt, Profile: client.Profile,
+		Token: client.Token, Conn: client.Conn, Code: client.Code,
+		coordinates: client.coordinates,
+	}
+}
+
+func (client *Client) SetIdentity(serial, pid, salt, token string, conn *net.Conn) {
+	client.mutex.Lock()
+	defer client.mutex.Unlock()
+	client.Serial, client.Pid, client.Salt, client.Token, client.Conn = serial, pid, salt, token, conn
+}
+
+func (client *Client) SetVersion(version string) {
+	client.mutex.Lock()
+	client.Version = version
+	client.mutex.Unlock()
+}
+
+func (client *Client) SetProfile(p *profile.Profile) *profile.Profile {
+	client.mutex.Lock()
+	defer client.mutex.Unlock()
+	previous := client.Profile
+	client.Profile = p
+	return previous
+}
+
+func (client *Client) MatchesToken(token string) bool {
+	client.mutex.RLock()
+	defer client.mutex.RUnlock()
+	return token != "" && client.Token != "" && subtle.ConstantTimeCompare([]byte(client.Token), []byte(token)) == 1
 }
 
 func GetAllClientsList() []*Client {
